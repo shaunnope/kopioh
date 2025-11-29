@@ -1,12 +1,7 @@
-import { Bot, webhookCallback } from "https://deno.land/x/grammy@v1.38.3/mod.ts";
+import { webhookCallback } from "https://deno.land/x/grammy@v1.38.4/mod.ts";
+import { getBot } from "./bot/index.ts";
 
-const token = Deno.env.get("BOT_TOKEN");
-if (!token) throw new Error("BOT_TOKEN is unset");
-
-const bot = new Bot(token);
-
-bot.command("start", (ctx) => ctx.reply("Welcome! Up and running."));
-bot.command("ping", (ctx) => ctx.reply(`Pong! ${new Date()}`));
+const bot = getBot();
 
 const handleUpdate = webhookCallback(bot, "std/http");
 
