@@ -26,8 +26,9 @@ const configSchema = z.object({
     .preprocess(arg => parseJsonSafe(arg as string), z.array(z.enum(API_CONSTANTS.ALL_UPDATE_TYPES)))
     .catch([]),
   BOT_TOKEN: z.string(),
+  BOT_OWNER_ID: z.coerce.number().int(),
   SUPABASE_PROJECT_ID: z.string(),
-  BOT_OWNER_USER_ID: z.coerce.number().int(),
+  SUPABASE_KEY: z.string(),
 })
 
 export function parseConfig(env: Deno.Env) {
@@ -36,6 +37,7 @@ export function parseConfig(env: Deno.Env) {
     ...config,
     env_isTest: config.DEPLOY_ENV === "test",
     env_isProd: config.DEPLOY_ENV === "production",
+    SUPABASE_URL: `https://${config.SUPABASE_PROJECT_ID}.supabase.co`
   }
 }
 
