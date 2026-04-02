@@ -27,17 +27,28 @@ const configSchema = z.object({
     .catch([]),
   BOT_TOKEN: z.string(),
   BOT_OWNER_ID: z.coerce.number().int(),
-  SUPABASE_PROJECT_ID: z.string(),
-  SUPABASE_KEY: z.string(),
+  PLATFORM: z.enum(["supabase", "deno-deploy"]).default("deno-deploy"),
+  PROJECT_ID: z.string(),
+  PLATFORM_KEY: z.string(),
 })
 
 export function parseConfig(env: Deno.Env) {
   const config = configSchema.parse(env.toObject())
-  return {
+  const withEnv = {
     ...config,
     env_isTest: config.DEPLOY_ENV === "test",
     env_isProd: config.DEPLOY_ENV === "production",
-    SUPABASE_URL: `https://${config.SUPABASE_PROJECT_ID}.supabase.co`
+  }
+  
+  switch (config.PLATFORM) {
+    case "supabase":
+      return {
+        ...withEnv,
+        SUPABASE_URL: `https://${config.PROJECT_ID}.supabase.co`
+      }
+    case "deno-deploy":
+    default:
+      return withEnv
   }
 }
 

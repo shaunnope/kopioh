@@ -1,3 +1,4 @@
+// main entry point for deno
 import { webhookCallback } from "https://deno.land/x/grammy@v1.38.4/mod.ts";
 import { getBot } from "./bot/index.ts";
 

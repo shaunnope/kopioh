@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { config } from "../../config.ts";
 
 // Initialize Supabase client
-const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_KEY)
+const supabase = createClient(config.SUPABASE_URL, config.PLATFORM_KEY)
 
 
 const composer = new Composer<Context>()

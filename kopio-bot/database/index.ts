@@ -9,7 +9,7 @@ function getDb() {
 
 const client = createClient<Database>(
   config.SUPABASE_URL, 
-  config.SUPABASE_KEY,
+  config.PLATFORM_KEY,
 )
 
 /**
