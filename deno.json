@@ -5,6 +5,6 @@
     "register": "deno run --allow-run --allow-env --env-file=.env.prod utils/register.ts"
   },
   "imports": {
-    "@std/assert": "jsr:@std/assert@1"
+    "@std/assert": "jsr:@std/assert@^1.0.19"
   }
 }
