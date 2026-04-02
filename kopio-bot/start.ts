@@ -3,9 +3,7 @@ import { getBot } from "./bot/index.ts";
 import { config } from "./config.ts";
 import { logger } from "./logger.ts";
 
-
 const bot = getBot();
-// Only allow long polling when not in production
 if (!config.env_isProd) await bot.start({
     allowed_updates: config.BOT_ALLOWED_UPDATES,
     onStart: ({ username }) =>

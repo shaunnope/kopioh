@@ -3,8 +3,8 @@
 import "./command.ts"
 import { logOuput, runCommand } from "./command.ts";
 
-const PROJECT_REF = Deno.env.get("SUPABASE_PROJECT_ID");
-if (!PROJECT_REF) throw new Error("SUPABASE_PROJECT_ID is unset");
+const PROJECT_REF = Deno.env.get("PROJECT_ID");
+if (!PROJECT_REF) throw new Error("PROJECT_ID is unset");
 
 const BOT_TOKEN = Deno.env.get("BOT_TOKEN");
 if (!BOT_TOKEN) throw new Error("BOT_TOKEN is unset");
