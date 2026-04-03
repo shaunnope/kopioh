@@ -1,0 +1,9 @@
+connect =
+  .not_admin = You must be a group owner to use this command.
+  .forward_prompt = 🔗 Forward this message to a broadcast channel to connect it.
+  .success = ✅ Connection established.
+  .already_exists = ⚠️ This chat is already linked to a broadcast channel.
+  .invalid_message = ⚠️ Could not read connection data from this message.
+  .disconnected = ✅ Connection removed.
+  .not_connected = ⚠️ This group is not connected to any broadcast channel.
+  .already_connected = ⚠️ This group is already connected to a broadcast channel. Run /disconnect to remove it first.

@@ -1,10 +1,16 @@
+[db.pooler]
+enabled = true
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
 
-[functions.kopioh-bot]
+[functions.kopio-bot]
 enabled = true
 verify_jwt = false
-import_map = "./functions/kopioh-bot/deno.json"
-entrypoint = "./functions/kopioh-bot/index.ts"
+import_map = "./functions/kopio-bot/deno.json"
+entrypoint = "./functions/kopio-bot/index.ts"
 static_files = [ 
-  # "./functions/kopioh-bot/*.html", 
-  "./functions/kopioh-bot/locales/"
+  # "./functions/kopio-bot/*.html", 
+  "./functions/kopio-bot/locales/"
   ]

@@ -1,4 +1,4 @@
-import { API_CONSTANTS } from "https://deno.land/x/grammy@v1.38.4/mod.ts";
+import { API_CONSTANTS } from "https://deno.land/x/grammy@v1.42.0/mod.ts";
 import z, { ZodError } from "zod"
 
 function parseJsonSafe(path: string) {
@@ -27,17 +27,29 @@ const configSchema = z.object({
     .catch([]),
   BOT_TOKEN: z.string(),
   BOT_OWNER_ID: z.coerce.number().int(),
-  SUPABASE_PROJECT_ID: z.string(),
-  SUPABASE_KEY: z.string(),
+  PLATFORM: z.enum(["supabase", "deno-deploy"]).default("supabase"),
+  PROJECT_ID: z.string(),
+  PLATFORM_KEY: z.string(),
+  DATABASE: z.enum(["postgres"]).default("postgres"),
+  DB_PASSWORD:z.string().default("password"),
+  DB_URL:z.string(),
 })
 
 export function parseConfig(env: Deno.Env) {
   const config = configSchema.parse(env.toObject())
-  return {
+  const hydrated = {
     ...config,
     env_isTest: config.DEPLOY_ENV === "test",
     env_isProd: config.DEPLOY_ENV === "production",
-    SUPABASE_URL: `https://${config.SUPABASE_PROJECT_ID}.supabase.co`
+  }
+  const DB_URL = hydrated.env_isTest 
+    ? config.DB_URL // use the provided url as-is when testing
+    : `postgresql://postgres.${config.PROJECT_ID}:${config.DB_PASSWORD}@${config.DB_URL}`
+
+  return {
+    ...hydrated,
+    PROJECT_URL: config.PLATFORM == "supabase" ? `https://${config.PROJECT_ID}.supabase.co` : "",
+    DB_URL: DB_URL
   }
 }
 

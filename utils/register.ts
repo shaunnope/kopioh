@@ -3,25 +3,46 @@
 import "./command.ts"
 import { logOuput, runCommand } from "./command.ts";
 
-const PROJECT_REF = Deno.env.get("SUPABASE_PROJECT_ID");
-if (!PROJECT_REF) throw new Error("SUPABASE_PROJECT_ID is unset");
-
+const PROJECT_REF = Deno.env.get("PROJECT_ID");
 const BOT_TOKEN = Deno.env.get("BOT_TOKEN");
-if (!BOT_TOKEN) throw new Error("BOT_TOKEN is unset");
+const PLATFORM = Deno.env.get("PLATFORM")
 
-// update token secret
-let res = await runCommand("supabase", [
-      "secrets",
-      "set",
-      `BOT_TOKEN=${BOT_TOKEN}`,
-      "--project-ref",
-      PROJECT_REF,
-    ]);
-logOuput(res);
+async function register() {
+  
+  if (!PROJECT_REF) throw new Error("PROJECT_ID is unset");
+  if (!BOT_TOKEN) throw new Error("BOT_TOKEN is unset");
 
-// update webhook url
-//https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=https://<PROJECT_REFERENCE_ID>.supabase.co/functions/v1/telegram-bot?secret=<BOT_TOKEN>
-res = await runCommand("curl", [
-      `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook?url=https://${PROJECT_REF}.supabase.co/functions/v1/kopioh-bot?secret=${BOT_TOKEN}`,
-    ]);
-logOuput(res);
+  let webhookUrl = ""
+  switch (PLATFORM) {
+    case "supabase":
+    default:
+    {
+      const FUNCTION = Deno.env.get("FUNCTION")
+      if (!FUNCTION) throw new Error("FUNCTION is unset");
+      
+      // update token secret
+      const res = await runCommand("supabase", [
+          "secrets",
+          "set",
+          `BOT_TOKEN=${BOT_TOKEN}`,
+          "--project-ref",
+          PROJECT_REF,
+        ]);
+      logOuput(res);
+      webhookUrl = `https://${PROJECT_REF}.supabase.co/functions/v1/${FUNCTION}?secret=${BOT_TOKEN}`
+    }
+  }
+
+  
+
+  // update webhook url
+  //https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=https://<PROJECT_REFERENCE_ID>.supabase.co/functions/v1/telegram-bot?secret=<BOT_TOKEN>
+  const res = await runCommand("curl", [
+        `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook?url=${webhookUrl}}`,
+      ]);
+  logOuput(res);
+}
+
+
+
+await register()

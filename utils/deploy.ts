@@ -1,17 +1,32 @@
 import "./command.ts"
 import { logOuput, runCommand } from "./command.ts";
 
-const PROJECT_REF = Deno.env.get("SUPABASE_PROJECT_ID");
-if (!PROJECT_REF) throw new Error("SUPABASE_PROJECT_ID is unset");
+const PROJECT_REF = Deno.env.get("PROJECT_ID");
+const PLATFORM = Deno.env.get("PLATFORM")
 
-// deploy function
-const res = await runCommand("supabase", [
-      "functions",
-      "deploy",
-      "--no-verify-jwt",
-      "--project-ref",
-      PROJECT_REF,
-      "kopioh-bot"
-    ]);
-logOuput(res);
+async function deploy() {
+  if (!PROJECT_REF) throw new Error("PROJECT_ID is unset");
+  switch (PLATFORM) {
+    case "supabase":
+    default:
+    {
+      const FUNCTION = Deno.env.get("FUNCTION")
+      if (!FUNCTION) throw new Error("FUNCTION is unset");
+
+      // deploy function
+      const res = await runCommand("supabase", [
+        "functions",
+        "deploy",
+        "--no-verify-jwt",
+        "--project-ref",
+        PROJECT_REF,
+        FUNCTION
+      ]);
+      logOuput(res);
+    }
+  }
+}
+
+await deploy()
+
 

@@ -1,0 +1,6 @@
+welcome = 👋🏻 Hi there! I am KPO Bot.
+  .commands = COMMANDS
+  .prompt_start_bot = Hi {$user}! Before you can use me, you need to start the bot.
+  .help = 👋🏻 Hi there! To use me, send me a private message.
+  .help_button = Open private chat
+  .submit_ready = 👋🏻 Hi there! You're all set to submit a post.
