@@ -14,4 +14,7 @@ if (!config.env_isProd) await bot.start({
         username,
       }),
   });
+else {
+  logger.warn("Cannot start bot via long-polling in production")
+}
 

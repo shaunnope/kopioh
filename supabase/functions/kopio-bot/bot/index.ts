@@ -7,15 +7,12 @@ import { welcomeFeature } from "./feature/welcome.ts";
 import { connectionFeature } from "./feature/connect.ts";
 import { config } from "../config.ts";
 import { miscFeature } from "./feature/misc.ts";
+import { unhandledHandler } from "./feature/unhandler.ts";
 
 export function getBot() {
   const bot = new BaseBot<Context>(config.BOT_TOKEN);
 
   // Base Middleware
-  // if (config.isDev) {
-  //   bot.use(updateLogger())
-  // }
-
   bot.use(hydrate())
   bot.use(i18n)
 
@@ -29,12 +26,7 @@ export function getBot() {
   //   bot.use(languageFeature)
   // }
 
-  // bot.use(unhandledHandler)
-
-  // if (config.isDev) {
-  //   bot.catch(errorHandler)
-  // }
-
+  bot.use(unhandledHandler)
   return bot
 }
 

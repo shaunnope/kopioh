@@ -1,4 +1,8 @@
-// register new bot token. Only needs to be run after token is revoked.
+// register new bot token, bind webhook url. 
+// Only needs to be run:
+//  - after token is revoked
+//  - function url is changed (new webhook url)
+//  - bot was previously started in long-polling mode (webhook unset)
 
 import "./command.ts"
 import { logOuput, runCommand } from "./command.ts";
@@ -33,16 +37,13 @@ async function register() {
     }
   }
 
-  
-
   // update webhook url
   //https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=https://<PROJECT_REFERENCE_ID>.supabase.co/functions/v1/telegram-bot?secret=<BOT_TOKEN>
   const res = await runCommand("curl", [
-        `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook?url=${webhookUrl}}`,
-      ]);
+      `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook?url=${webhookUrl}`,
+    ]);
   logOuput(res);
 }
-
 
 
 await register()

@@ -31,25 +31,33 @@ const configSchema = z.object({
   PROJECT_ID: z.string(),
   PLATFORM_KEY: z.string(),
   DATABASE: z.enum(["postgres"]).default("postgres"),
-  DB_PASSWORD:z.string().default("password"),
-  DB_URL:z.string(),
+  DB_PASSWORD: z.string().default("password"),
+  DB_URL: z.string(),
+  S3FS_BUCKET: z.string().default("bot-assets"),
+  LOCALES_DIR: z.string().default("locales")
 })
 
 export function parseConfig(env: Deno.Env) {
   const config = configSchema.parse(env.toObject())
   const hydrated = {
     ...config,
-    env_isTest: config.DEPLOY_ENV === "test",
+    // env_isTest: config.DEPLOY_ENV === "test",
     env_isProd: config.DEPLOY_ENV === "production",
   }
-  const DB_URL = hydrated.env_isTest 
-    ? config.DB_URL // use the provided url as-is when testing
+
+  const DB_URL = !hydrated.env_isProd // construct DB url in production
+    ? config.DB_URL
     : `postgresql://postgres.${config.PROJECT_ID}:${config.DB_PASSWORD}@${config.DB_URL}`
+
+  const LOCALES_DIR = hydrated.env_isProd && config.PLATFORM == "supabase"
+    ? `/s3/${config.S3FS_BUCKET}/${config.LOCALES_DIR}`
+    : config.LOCALES_DIR
 
   return {
     ...hydrated,
     PROJECT_URL: config.PLATFORM == "supabase" ? `https://${config.PROJECT_ID}.supabase.co` : "",
-    DB_URL: DB_URL
+    DB_URL: DB_URL,
+    LOCALES_DIR: LOCALES_DIR
   }
 }
 

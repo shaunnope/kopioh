@@ -4,7 +4,6 @@ import { FormattedString } from "https://deno.land/x/grammy_parse_mode@2.3.0/mod
 
 import { type Context } from "../context.ts";
 import { logHandle } from "../helper/logging.ts";
-import { config } from "../../config.ts";
 
 const composer = new Composer<Context>()
 
