@@ -1,5 +1,7 @@
 connect =
   .not_admin = You must be a group owner to use this command.
+  .verify_prompt = It seems that you're anonymous. Tap the button below to verify you are a group owner.
+  .verify_button = Verify
   .forward_prompt = 🔗 Forward this message to a broadcast channel to connect it.
   .success = ✅ Connection established.
   .already_exists = ⚠️ This chat is already linked to a broadcast channel.

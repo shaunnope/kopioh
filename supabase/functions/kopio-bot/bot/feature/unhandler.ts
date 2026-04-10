@@ -8,7 +8,8 @@ const composer = new Composer<Context>()
 
 const feature = composer
 
+// Only catch non-handled commands
 feature.on("::bot_command", logHandle("unhandled"), ctx => ctx.reply(ctx.t("unhandled.command")))
-feature.on(":text", logHandle("unhandled"), ctx => ctx.reply(ctx.t("unhandled.text")))
+// feature.on(":text", logHandle("unhandled"), ctx => ctx.reply(ctx.t("unhandled.text")))
 
 export { composer as unhandledHandler }
