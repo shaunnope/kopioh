@@ -1,11 +1,23 @@
-import type { Context as DefaultContext } from "https://deno.land/x/grammy@v1.42.0/mod.ts";
+import type { Context as DefaultContext } from "grammy";
 
-import { HydrateFlavor } from "https://deno.land/x/grammy_hydrate@v1.6.0/mod.ts";
+import { HydrateFlavor } from "grammy_hydrate";
 
-import type { I18nFlavor } from "https://deno.land/x/grammy_i18n@v1.1.0/mod.ts";
+import type { I18nFlavor } from "grammy_i18n";
 
-export type Context =
+import type { ConversationFlavor, Conversation as DefaultConversation } from "grammy_conversations";
+import { SessionFlavor } from "./session.ts";
+
+type BaseContext = DefaultContext & I18nFlavor
+
+export type ConversationContext = 
+  HydrateFlavor<BaseContext>
+export type Context = ConversationFlavor<
   HydrateFlavor<
-    DefaultContext &
-    I18nFlavor
+    BaseContext & SessionFlavor
+    >
   >
+export type Conversation = DefaultConversation<Context, ConversationContext>
+
+export const convoStorage = {
+  
+}

@@ -1,4 +1,4 @@
-import { I18n } from "https://deno.land/x/grammy_i18n@v1.1.0/mod.ts";
+import { I18n } from "grammy_i18n";
 
 import type { Context } from "./context.ts";
 import { config } from "../config.ts";

@@ -1,8 +1,7 @@
-import { Composer, InlineKeyboard, Middleware } from "https://deno.land/x/grammy@v1.42.0/mod.ts";
+import { Composer, InlineKeyboard, Middleware } from "grammy";
 import { Context } from "../context.ts";
 import { logHandle } from "../helper/logging.ts";
 import db from "../../database/index.ts";
-import { nextTick } from "node:process";
 
 const composer = new Composer<Context>()
 

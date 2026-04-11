@@ -1,5 +1,5 @@
 // function entry point
-import { webhookCallback } from "https://deno.land/x/grammy@v1.42.0/mod.ts";
+import { webhookCallback } from "grammy";
 import { getBot } from "./bot/index.ts";
 
 const bot = getBot();

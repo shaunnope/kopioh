@@ -1,4 +1,4 @@
-import type { Update } from "https://deno.land/x/grammy@v1.42.0/types.ts";
+import type { Update } from "grammy/types";
 import { getBot } from "../../bot/index.ts";
 
 export const BOT_ID = 999;

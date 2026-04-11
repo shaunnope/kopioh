@@ -4,9 +4,15 @@
     "test": "deno test --env-file=.env.test --allow-all tests/"
   },
   "imports": {
+    "grammy": "https://deno.land/x/grammy@v1.42.0/mod.ts",
+    "grammy/types": "https://deno.land/x/grammy@v1.42.0/types.ts",
+    "grammy_conversations": "https://deno.land/x/grammy_conversations@v2.1.1/mod.ts",
+    "grammy_conversations/plugin": "https://deno.land/x/grammy_conversations@v2.1.1/plugin.ts",
+    "grammy_hydrate": "https://deno.land/x/grammy_hydrate@v1.6.0/mod.ts",
+    "grammy_i18n": "https://deno.land/x/grammy_i18n@v1.1.0/mod.ts",
+    "grammy_parse_mode": "https://deno.land/x/grammy_parse_mode@2.3.0/mod.ts",
     "lodash": "npm:lodash@^4.17.21",
     "pino": "npm:pino@^10.1.0",
-    "pino-pretty": "npm:pino-pretty@^13.1.2",
     "postgres": "https://deno.land/x/postgres@v0.19.3/mod.ts",
     "zod": "npm:zod@^4.1.13"
   }

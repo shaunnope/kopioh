@@ -1,4 +1,4 @@
-import { Middleware } from "https://deno.land/x/grammy@v1.42.0/mod.ts";
+import { Middleware } from "grammy";
 
 import _ from "lodash"
 

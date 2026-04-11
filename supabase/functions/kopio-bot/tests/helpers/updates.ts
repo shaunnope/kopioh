@@ -1,4 +1,4 @@
-import type { Update } from "https://deno.land/x/grammy@v1.42.0/types.ts";
+import type { Update } from "grammy/types";
 
 let _updateId = 0;
 const nextId = () => ++_updateId;

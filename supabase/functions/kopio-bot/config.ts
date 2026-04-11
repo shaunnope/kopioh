@@ -1,4 +1,4 @@
-import { API_CONSTANTS } from "https://deno.land/x/grammy@v1.42.0/mod.ts";
+import { API_CONSTANTS } from "grammy";
 import z, { ZodError } from "zod"
 
 function parseJsonSafe(path: string) {

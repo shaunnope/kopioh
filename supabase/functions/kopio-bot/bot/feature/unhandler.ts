@@ -1,5 +1,5 @@
 
-import { Composer } from "https://deno.land/x/grammy@v1.42.0/mod.ts";
+import { Composer } from "grammy";
 
 import { type Context } from "../context.ts";
 import { logHandle } from "../helper/logging.ts";

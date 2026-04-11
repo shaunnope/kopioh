@@ -1,0 +1,9 @@
+submit =
+  .prompt = What would you like to submit? Send me a message or poll.
+  .send_content = Please send a message or poll, not a command.
+  .confirm_prompt = Ready to submit this?
+  .confirm_button = ✅ Submit
+  .cancel_button = ✗ Cancel
+  .success = ✅ Your submission is now under review.
+  .cancelled = Submission cancelled.
+  .no_connection = ⚠️ No broadcast channel configured. Please start again from your group.

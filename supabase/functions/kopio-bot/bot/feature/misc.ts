@@ -1,6 +1,6 @@
 
-import { Composer } from "https://deno.land/x/grammy@v1.42.0/mod.ts";
-import { FormattedString } from "https://deno.land/x/grammy_parse_mode@2.3.0/mod.ts";
+import { Composer } from "grammy";
+import { FormattedString } from "grammy_parse_mode";
 
 import { type Context } from "../context.ts";
 import { logHandle } from "../helper/logging.ts";

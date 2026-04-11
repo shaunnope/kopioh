@@ -30,9 +30,22 @@ For distinct `<broadcast, submit, logs>` connections, the following conditions h
 - Each `broadcast` may have multiple `submit`
 
 ### Submission Flow
-When a `\help` command is sent in a `submit` chat, the bot replies with an inline link to the bot's private chat, with a connection reference. The command message is immediately deleted. The reply with the inline link is deleted one minute later.
+When the `\start` command is sent in a `submit` chat, the bot replies with an inline link to the bot's private chat, with a connection reference. The command message is immediately deleted. The reply with the inline link is deleted one minute later.
 
 Users who wish to post a submission on `broadcast` can use the inline link to initiate a private chat with the bot. In the private chat, the user will send one poll/message. To which the bot replies with a confirmation, and the submission is added to the approval queue for `broadcast` upon user confirmation.
+
+- User sends `\start` in a `submit` chat
+- Bot deletes command and replies with inline link to private chat, with connection reference
+- User clicks link, initiates private chat with bot
+  - Bot deletes the initial reply after one minute
+
+In private chat:
+- Bot prompts user of source `submit` chat and requests submission content (poll or message)
+- User sends content
+- Bot replies with confirmation message, showing content and source `submit` chat
+- User confirms submission
+- Bot adds submission to approval queue for associated `broadcast`
+  - Deletes user's submission message and confirmation message in private chat
 
 ### Moderation Flow
 
