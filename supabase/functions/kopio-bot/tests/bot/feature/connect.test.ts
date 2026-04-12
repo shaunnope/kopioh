@@ -1,5 +1,5 @@
-import { describe, it, beforeEach, afterEach, afterAll } from "jsr:@std/testing/bdd";
-import { assertEquals, assertExists } from "jsr:@std/assert";
+import { describe, it, beforeEach, afterEach, afterAll } from "@std/testing/bdd";
+import { assertEquals, assertExists } from "@std/assert";
 import db from "../../../database/index.ts";
 import { createTestBot, BOT_ID } from "../../helpers/bot.ts";
 import { groupCommand, channelPostForwarded, channelPost } from "../../helpers/updates.ts";

@@ -69,6 +69,17 @@ export function createTestBot() {
         // deno-lint-ignore no-explicit-any
         return Promise.resolve({ ok: true, result: true } as any);
 
+      case "answerCallbackQuery":
+        // deno-lint-ignore no-explicit-any
+        return Promise.resolve({ ok: true, result: true } as any);
+
+      case "getChat":
+        return Promise.resolve({
+          ok: true,
+          result: overrides.chatInfo ?? { id: p.chat_id, type: "supergroup", title: "Test Group" },
+          // deno-lint-ignore no-explicit-any
+        } as any);
+
       case "getChatMember":
         return Promise.resolve({
           ok: true,

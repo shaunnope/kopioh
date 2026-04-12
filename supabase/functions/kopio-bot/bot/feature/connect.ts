@@ -124,7 +124,7 @@ groupFeature.command(
     if (!await validateUser(userId, ctx, "disconnect"))
       return;
     await ctx.deleteMessage()
-    next()
+    await next()
   },
   processDisconnect
 )

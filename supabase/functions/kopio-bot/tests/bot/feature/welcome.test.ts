@@ -1,6 +1,6 @@
-import { describe, it, beforeEach, afterEach, afterAll } from "jsr:@std/testing/bdd";
-import { FakeTime } from "jsr:@std/testing/time";
-import { assertEquals, assertExists } from "jsr:@std/assert";
+import { describe, it, beforeEach, afterEach, afterAll } from "@std/testing/bdd";
+import { FakeTime } from "@std/testing/time";
+import { assertEquals, assertExists } from "@std/assert";
 import db from "../../../database/index.ts";
 import { createTestBot } from "../../helpers/bot.ts";
 import { privateCommand, groupCommand } from "../../helpers/updates.ts";
@@ -41,7 +41,7 @@ describe("welcome feature", () => {
       assertExists(send);
     });
 
-    it("replies with submit_ready when submitId has a connection", async () => {
+    it("enters submit conversation (prompts for content) when submitId has a connection", async () => {
       await db.createConnection(BROADCAST_ID, SUBMIT_ID);
       testBot.clearCalls();
 
@@ -51,7 +51,10 @@ describe("welcome feature", () => {
 
       const send = testBot.calls.find(c => c.method === "sendMessage");
       assertExists(send);
-      assertEquals((send.payload as { text: string }).text, "👋🏻 Hi there! You're all set to submit a post.");
+      assertEquals(
+        (send.payload as { text: string }).text,
+        "What would you like to submit? Send me a message or poll.",
+      );
     });
   });
 

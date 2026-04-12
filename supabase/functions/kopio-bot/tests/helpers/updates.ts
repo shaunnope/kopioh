@@ -86,3 +86,46 @@ export function channelPost(opts: {
     },
   };
 }
+
+export function privateMessage(opts: {
+  userId: number;
+  text: string;
+  messageId?: number;
+}): Update {
+  const { userId, text, messageId = nextId() } = opts;
+  return {
+    update_id: nextId(),
+    message: {
+      message_id: messageId,
+      date: Math.floor(Date.now() / 1000),
+      chat: { id: userId, type: "private", first_name: "Tester" },
+      from: { id: userId, is_bot: false, first_name: "Tester" },
+      text,
+    },
+  };
+}
+
+export function callbackQuery(opts: {
+  userId: number;
+  chatId: number;
+  data: string;
+  messageId?: number;
+}): Update {
+  const { userId, chatId, data, messageId = nextId() } = opts;
+  return {
+    update_id: nextId(),
+    callback_query: {
+      id: String(nextId()),
+      from: { id: userId, is_bot: false, first_name: "Tester" },
+      data,
+      chat_instance: "test",
+      message: {
+        message_id: messageId,
+        date: Math.floor(Date.now() / 1000),
+        chat: { id: chatId, type: "private", first_name: "Tester" },
+        from: { id: userId, is_bot: false, first_name: "Tester" },
+        text: "confirm prompt",
+      },
+    },
+  };
+}
