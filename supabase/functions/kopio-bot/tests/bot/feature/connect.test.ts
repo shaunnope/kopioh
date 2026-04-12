@@ -1,5 +1,5 @@
-import { describe, it, beforeEach, afterEach, afterAll } from "jsr:@std/testing/bdd";
-import { assertEquals, assertExists } from "jsr:@std/assert";
+import { describe, it, beforeEach, afterEach, afterAll } from "@std/testing/bdd";
+import { assertEquals, assertExists } from "@std/assert";
 import db from "../../../database/index.ts";
 import { createTestBot, BOT_ID } from "../../helpers/bot.ts";
 import { groupCommand, channelPostForwarded, channelPost } from "../../helpers/updates.ts";
@@ -41,11 +41,11 @@ describe("connect feature", () => {
       assertExists(edit);
 
       // Initial send has placeholder message_id 0
-      assertEquals((send.payload as { text: string }).text.includes(`[${SUBMIT_ID};0]`), true);
+      assertEquals((send.payload as { text: string }).text.includes(`[${SUBMIT_ID};0;${USER_ID}]`), true);
       // Edit replaces 0 with the real message_id
       const editText = (edit.payload as { text: string }).text;
-      assertEquals(/\[-?\d+;\d+\]/.test(editText), true);
-      assertEquals(editText.includes(";0]"), false);
+      assertEquals(/\[-?\d+;\d+;\d+\]/.test(editText), true);
+      assertEquals(editText.includes(";0;"), false);
     });
 
     it("rejects when already connected", async () => {
@@ -131,7 +131,7 @@ describe("connect feature", () => {
       await testBot.handleUpdate(
         channelPostForwarded({
           chatId: BROADCAST_ID,
-          text: `🔗 Forward this message to a broadcast channel to connect it.\n[${SUBMIT_ID};${originalMsgId}]`,
+          text: `🔗 Forward this message to a broadcast channel to connect it.\n[${SUBMIT_ID};${originalMsgId};${USER_ID}]`,
           fromBotId: BOT_ID,
         }),
       );

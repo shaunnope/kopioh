@@ -21,3 +21,13 @@ export type Conversation = DefaultConversation<Context, ConversationContext>
 export const convoStorage = {
   
 }
+
+/**
+ * Attempt to delete the associated message.
+ * 
+ * Bot may lack admin rights to delete messages in a group. In such cases, silently ignore error and leave message
+ * @param ctx 
+ */
+export async function TryDeleteMessage(ctx: Context) {
+  await ctx.deleteMessage().catch(() => {})
+}

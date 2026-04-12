@@ -1,4 +1,6 @@
-
+/**
+ * Global context handlers for general QOL requests,
+ */
 import { Composer } from "grammy";
 import { FormattedString } from "grammy_parse_mode";
 

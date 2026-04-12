@@ -1,6 +1,6 @@
-import { describe, it, beforeEach, afterEach, afterAll } from "jsr:@std/testing/bdd";
-import { FakeTime } from "jsr:@std/testing/time";
-import { assertEquals, assertExists } from "jsr:@std/assert";
+import { describe, it, beforeEach, afterEach, afterAll } from "@std/testing/bdd";
+import { FakeTime } from "@std/testing/time";
+import { assertEquals, assertExists } from "@std/assert";
 import db from "../../../database/index.ts";
 import { createTestBot } from "../../helpers/bot.ts";
 import { privateCommand, groupCommand } from "../../helpers/updates.ts";
@@ -18,6 +18,14 @@ describe("welcome feature", () => {
 
   afterEach(async () => {
     await db.deleteConnection(SUBMIT_ID);
+    const conn = await db.pool.connect();
+    try {
+      await conn.queryObject`DELETE FROM users WHERE id = ${USER_ID}`;
+      await conn.queryObject`DELETE FROM bot_conversations WHERE key LIKE ${"%" + USER_ID + "%"}`;
+      await conn.queryObject`DELETE FROM bot_sessions WHERE key LIKE ${"%" + USER_ID + "%"}`;
+    } finally {
+      conn.release();
+    }
   });
 
   afterAll(() => db.pool.end());
@@ -41,19 +49,22 @@ describe("welcome feature", () => {
       assertExists(send);
     });
 
-    it("replies with submit_ready when submitId has a connection", async () => {
+    it("enters submit conversation (prompts for content) when command sent via inline button with deep-linking", async () => {
       await db.createConnection(BROADCAST_ID, SUBMIT_ID);
-      testBot.clearCalls();
+      testBot.clearCalls()
 
+      // simulates the deep-linking command call
       await testBot.handleUpdate(
         privateCommand({ userId: USER_ID, command: "start", payload: String(SUBMIT_ID) }),
-      );
+      )
 
-      const send = testBot.calls.find(c => c.method === "sendMessage");
-      assertExists(send);
-      assertEquals((send.payload as { text: string }).text, "👋🏻 Hi there! You're all set to submit a post.");
-    });
-  });
+      const sends = testBot.calls.filter(c => c.method === "sendMessage");
+      const prompt = sends.find(s =>
+        (s.payload as { text: string }).text === "What would you like to submit? Send me a message or poll.",
+      )
+      assertExists(prompt)
+    })
+  })
 
   describe("/start in group chat", () => {
     it("sends a help message with inline keyboard and deletes the command", async () => {

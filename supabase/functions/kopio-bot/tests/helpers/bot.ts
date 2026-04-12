@@ -1,10 +1,13 @@
-import type { Update } from "grammy/types";
+import { MemorySessionStorage, type NextFunction, type RawApi, type Transformer } from "grammy";
+import type { SessionData } from "../../bot/session.ts";
+import type { Update, UserFromGetMe as BotInfo } from "grammy/types";
 import { getBot } from "../../bot/index.ts";
+import { ConversationContext } from "../../bot/context.ts";
 
 export const BOT_ID = 999;
 export const BOT_USERNAME = "testbot";
 
-const TEST_BOT_INFO = {
+const TEST_BOT_INFO: BotInfo = {
   id: BOT_ID,
   is_bot: true as const,
   first_name: "TestBot",
@@ -22,52 +25,55 @@ const TEST_BOT_INFO = {
 export type ApiCall = { method: string; payload: Record<string, unknown> };
 
 /**
- * Creates a bot instance with a mocked Telegram API.
- * `calls` accumulates every outgoing API call.
- * `overrides` lets individual tests control specific method responses.
+ * The transformer used for mocking Bot API calls during unit tests. 
+ * Used to create the mock bot and augmenting conversations under test
+ * @param botInfo 
+ * @param calls 
+ * @param overrides 
+ * @returns 
  */
-export function createTestBot() {
-  const bot = getBot();
-  bot.botInfo = TEST_BOT_INFO;
-  const calls: ApiCall[] = [];
-  // deno-lint-ignore no-explicit-any
-  const overrides: Record<string, any> = {};
+// deno-lint-ignore no-explicit-any
+export function createTestTransformer(botInfo: BotInfo, calls: ApiCall[], overrides: Record<string, any>): Transformer<RawApi> {
+  return (_prev, method, payload) => {
+    calls.push({ method, payload: payload as Record<string, unknown> })
 
-  bot.api.config.use((_prev, method, payload) => {
-    calls.push({ method, payload: payload as Record<string, unknown> });
-
-    if (method in overrides) {
-      // deno-lint-ignore no-explicit-any
-      return Promise.resolve({ ok: true, result: overrides[method] } as any);
-    }
+    if (method in overrides)
+      return Promise.resolve({ ok: true, result: overrides[method] })
 
     // deno-lint-ignore no-explicit-any
     const p = payload as any;
 
     switch (method) {
       case "getMe":
-        // deno-lint-ignore no-explicit-any
-        return Promise.resolve({ ok: true, result: TEST_BOT_INFO } as any);
+        return Promise.resolve({ ok: true, result: botInfo })
 
-      case "sendMessage":
+      case "sendMessage": {
+        const isPrivate = (p.chat_id as number) > 0;
         return Promise.resolve({
           ok: true,
           result: {
             message_id: 100 + calls.length,
-            chat: { id: p.chat_id, type: "supergroup" },
             date: 0,
+            chat: isPrivate
+              ? { id: p.chat_id, type: "private", first_name: "Tester" }
+              : { id: p.chat_id, type: "supergroup", title: "Test Group" },
+            from: { id: botInfo.id, is_bot: true, first_name: "TestBot", username: botInfo.username },
             text: p.text ?? "",
           },
-          // deno-lint-ignore no-explicit-any
-        } as any);
+        })
+      }
 
       case "editMessageText":
-        // deno-lint-ignore no-explicit-any
-        return Promise.resolve({ ok: true, result: true } as any);
-
+      case "editMessageReplyMarkup":
       case "deleteMessage":
-        // deno-lint-ignore no-explicit-any
-        return Promise.resolve({ ok: true, result: true } as any);
+      case "answerCallbackQuery":
+        return Promise.resolve({ ok: true, result: true })
+
+      case "getChat":
+        return Promise.resolve({
+          ok: true,
+          result: overrides.chatInfo ?? { id: p.chat_id, type: "supergroup", title: "Test Group" }
+        })
 
       case "getChatMember":
         return Promise.resolve({
@@ -75,14 +81,33 @@ export function createTestBot() {
           result: {
             status: overrides.memberStatus ?? "creator",
             user: { id: p.user_id, is_bot: false, first_name: "Test" },
-          },
-          // deno-lint-ignore no-explicit-any
-        } as any);
+          }
+        })
 
       default:
-        throw new Error(`Unmocked Telegram API method: ${method}`);
+        throw new Error(`Unmocked Telegram API method: ${method}`)
     }
-  });
+  }
+}
+
+/**
+ * Creates a bot instance with a mocked Telegram API.
+ * `calls` accumulates every outgoing API call.
+ * `overrides` lets individual tests control specific method responses.
+ */
+ // deno-lint-ignore no-explicit-any
+export function createTestBot(botInfo: BotInfo = TEST_BOT_INFO, overrides: Record<string, any> | null = null) {
+  overrides ??= {}
+  const calls: ApiCall[] = []
+  
+  const transformer = createTestTransformer(botInfo, calls, overrides)
+  
+  const bot = getBot({
+    botInfo,
+    sessionStorage: new MemorySessionStorage<SessionData>(),
+    conversationStorage: new MemorySessionStorage(),
+    transformer
+  })
 
   return {
     bot,
@@ -90,5 +115,9 @@ export function createTestBot() {
     overrides,
     clearCalls: () => calls.splice(0),
     handleUpdate: (update: Update) => bot.handleUpdate(update),
-  };
+    convoPlugin: async (ctx: ConversationContext, next: NextFunction) => {
+    ctx.api.config.use(transformer);
+    await next();
+    }
+  }
 }

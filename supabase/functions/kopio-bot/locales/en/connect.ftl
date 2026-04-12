@@ -1,5 +1,6 @@
 connect =
   .not_admin = You must be a group owner to use this command.
+  .bot_not_admin = Operation requires the bot to be a group admin. Please grant the bot admin rights and try again.
   .verify_prompt = It seems that you're anonymous. Tap the button below to verify you are a group owner.
   .verify_button = Verify
   .forward_prompt = 🔗 Forward this message to a broadcast channel to connect it.
@@ -9,3 +10,9 @@ connect =
   .disconnected = ✅ Connection removed.
   .not_connected = ⚠️ This group is not connected to any broadcast channel.
   .already_connected = ⚠️ This group is already connected to a broadcast channel. Run /disconnect to remove it first.
+  .not_authorized = ⚠️ You must be an admin to use this command.
+  .mod_no_target = Reply to a message or mention a user to make them a moderator.
+  .mod_self = ⚠️ You cannot change your own role.
+  .mod_is_admin = ⚠️ { $name } is an admin and cannot be modded or unmodded.
+  .mod_success = ✅ { $name } is now a moderator.
+  .unmod_success = ✅ { $name } is no longer a moderator.

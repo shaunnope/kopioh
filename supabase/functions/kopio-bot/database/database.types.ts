@@ -7,7 +7,6 @@ export type Json =
   | Json[]
 
 export type UserRole = "user" | "moderator" | "admin"
-export type ContentType = "message" | "poll"
 
 export type Database = {
   public: {
@@ -111,7 +110,6 @@ export type Database = {
           broadcast_id: number
           created_by: number
           content: Json
-          content_type: ContentType
           original_content: Json | null
           created_at: string
           in_review: string | null
@@ -125,7 +123,6 @@ export type Database = {
           broadcast_id: number
           created_by: number
           content: Json
-          content_type?: ContentType
           original_content?: Json | null
           created_at?: string
           in_review?: string | null
@@ -139,7 +136,6 @@ export type Database = {
           broadcast_id?: number
           created_by?: number
           content?: Json
-          content_type?: ContentType
           original_content?: Json | null
           created_at?: string
           in_review?: string | null
@@ -174,7 +170,6 @@ export type Database = {
     }
     Enums: {
       user_role: UserRole
-      content_type: ContentType
     }
     CompositeTypes: {
       [_ in never]: never

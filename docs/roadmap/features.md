@@ -48,9 +48,8 @@ In private chat:
   - Deletes user's submission message and confirmation message in private chat
 
 ### Moderation Flow
-
 Pending submissions in the queue are surfaced to moderators in `logs`.
-Authorised moderators in `submit` can use the inline link to initiate a chat with the bot.
+Authorised moderators in `submit` can use the inline link to initiate a chat with the bot. Unlike regular users, they will be prompted if they want to "Submit" or "Approve" submissions.
 
 Moderators can see the number of pending submissions for the associated `broadcast`.
 
@@ -168,3 +167,14 @@ Top 10 users by points get:
 ---
 
 This system turns passive group members into active content creators, rewards quality over quantity, and gives moderators powerful tools to scale without burnout. The point economy creates a self-sustaining loop: more submissions → more engagement → more points → more loyalty → more content.
+
+## Expanded Message Types
+Add support for different types of messages, beyond text and polls.
+
+### Image, Video, Audio, etc.
+Message content consists of file(s) uploaded to Telegram's servers, which may be downloaded/reused.
+- Own download, storage of files not needed.
+
+`file_id`s appear to be persistent but specific to each bot. When a message with media content is received, ensure `file_id` is stored for subsequent referencing.
+
+Sending of media message will require proper dispatching of `Send` method, by media type.

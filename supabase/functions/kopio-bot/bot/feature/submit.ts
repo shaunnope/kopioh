@@ -10,18 +10,13 @@ const feature = composer.chatType("private");
  * Conversation for submitting a message or poll via private chat.
  *
  * Expects `ctx.session.pendingBroadcastId` to be set before entering.
- * Reads and clears it at the start of the conversation.
+ * The value is kept so subsequent actions target the same group until a new deeplink is used.
  */
 export async function submitConvo(
   conversation: Conversation,
   ctx0: ConversationContext,
 ) {
-  // Read and immediately clear the pending broadcast target from session.
-  const broadcastId = await conversation.external((ctx) => {
-    const id = ctx.session.pendingBroadcastId;
-    ctx.session.pendingBroadcastId = null;
-    return id;
-  });
+  const broadcastId = await conversation.external((ctx) => ctx.session.connection?.broadcastId ?? null);
 
   if (!broadcastId) {
     await ctx0.reply(ctx0.t("submit.no_connection"));
@@ -38,7 +33,6 @@ export async function submitConvo(
   }
 
   const message = contentCtx.message;
-  const contentType = message.poll ? "poll" : "message";
 
   // Extract only serialisable Telegram content fields.
   const content = {
@@ -73,7 +67,7 @@ export async function submitConvo(
   const userId = confirmCtx.from.id;
 
   await conversation.external(async _ => {
-    await db.createSubmission(broadcastId, userId, content, contentType);
+    await db.createSubmission(broadcastId, userId, content);
   });
 
   await confirmCtx.editMessageText(ctx0.t("submit.success"));
