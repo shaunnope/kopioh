@@ -19,7 +19,7 @@ The bot may be added to any chat/group/channel, and may be made admins in groups
 ## Bot Usage: Linking Chats/Channels
 Kopio functions over defined chat connections.
 A connection is a set `<broadcast, submit, logs>`, where:
-- `broadcast` is a channel/group/topic where Kopio broadcasts approved submissions
+- `broadcast` is a channel where Kopio broadcasts approved submissions
 - `submit` is a group/topic where users can initiate submission requests
 - `logs` is a channel/group/topic where actions in `broadcast` and `submit` can be logged
 
@@ -178,3 +178,50 @@ Message content consists of file(s) uploaded to Telegram's servers, which may be
 `file_id`s appear to be persistent but specific to each bot. When a message with media content is received, ensure `file_id` is stored for subsequent referencing.
 
 Sending of media message will require proper dispatching of `Send` method, by media type.
+
+## Whisper
+To support anonymous posting, the bot also allows users to send anonymous responses to the connected group, via a PM.
+
+With an active connection, send content to be posted, with confirmation.
+
+Users can only whisper N times within a configurable period.
+
+## Connection Configuration
+Each connection has a set of configuration options available, of which, admins for the connection may modify:
+- Types of content that can be supported
+- User whisper limit + reset period
+
+## Default Connection
+To simplify the user experience, a default connection may be set. When a user initiates a chat with the bot without a connection reference, the bot will use the default connection for any submission.
+
+## Queues
+Group admins can define multiple queues for a broadcast channel, each with its own posting frequency. Approved submissions will be assigned to a queue, and posted according to the queue's schedule.
+
+Moderators can choose which queue to assign an approved submission to, based on the content and desired posting frequency.
+
+### Ordering in Queues
+Within each queue, submissions are ordered by submission time. Newer submissions are added to the end of the queue. When a submission is posted, the next submission in the queue becomes the new head of the queue.
+
+### Viewing Queues
+After submissions are approved, moderators can browse and review / reedit submissions in each queue before they are posted.
+
+## Cron
+A check will be made every 30 mins to determine if there are any submissions that need to be posted to any broadcast channels, based on the posting schedule of each queue. If there are, the submission will be posted, and removed from the queue.
+
+## Weekly Summary
+Every week, a summary of the past week's submissions and their performance (e.g. engagement metrics) can be automatically generated and posted to the broadcast channel.
+
+## Warnings
+To maintain quality of submissions, the bot can issue warnings to users whose submissions are rejected. After a certain number of warnings, a user may be temporarily or permanently banned from submitting content.
+
+### Removing warnings
+Users can have warnings removed by an admin's discretion. This allows users to redeem themselves and encourages continued participation.
+
+### Warning reasoning
+When issuing a warning, the bot will log the reason for the warning (e.g. "Inappropriate content", "Spam", "Off-topic"). This helps admins track common issues and provides transparency to users.
+
+### Warning notifications
+When a user receives a warning, they will be notified via a private message from the bot, explaining the reason for the warning and how to avoid future warnings. This helps educate users on submission guidelines and promotes better content quality.
+
+### Configurable warning thresholds and penalties
+Admins can configure the number of warnings a user can receive before penalties are applied, as well as the duration of any temporary bans. This allows for flexibility in moderation policies based on the specific needs of the group.

@@ -63,6 +63,65 @@ export function createTestTransformer(botInfo: BotInfo, calls: ApiCall[], overri
         })
       }
 
+      case "sendPoll": {
+        const isPrivate = (p.chat_id as number) > 0;
+        return Promise.resolve({
+          ok: true,
+          result: {
+            message_id: 100 + calls.length,
+            date: 0,
+            chat: isPrivate
+              ? { id: p.chat_id, type: "private", first_name: "Tester" }
+              : { id: p.chat_id, type: "supergroup", title: "Test Group" },
+            from: { id: botInfo.id, is_bot: true, first_name: "TestBot", username: botInfo.username },
+            poll: {
+              id: `poll-${calls.length}`,
+              question: p.question ?? "",
+              options: (p.options as string[]).map((text, i) => ({ text, voter_count: 0, id: String(i) })),
+              total_voter_count: 0,
+              is_closed: false,
+              is_anonymous: p.is_anonymous ?? true,
+              type: p.type ?? "regular",
+              allows_multiple_answers: p.allows_multiple_answers ?? false,
+            },
+          },
+        })
+      }
+
+      case "sendPhoto": {
+        const isPrivate = (p.chat_id as number) > 0;
+        return Promise.resolve({
+          ok: true,
+          result: {
+            message_id: 100 + calls.length,
+            date: 0,
+            chat: isPrivate
+              ? { id: p.chat_id, type: "private", first_name: "Tester" }
+              : { id: p.chat_id, type: "supergroup", title: "Test Group" },
+            from: { id: botInfo.id, is_bot: true, first_name: "TestBot", username: botInfo.username },
+            photo: [{ file_id: "photo_file_id", file_unique_id: "photo_unique_id", width: 800, height: 600, file_size: 12345 }],
+            caption: p.caption ?? "",
+          },
+        })
+      }
+
+      case "sendVideo": {
+        const isPrivate = (p.chat_id as number) > 0;
+        return Promise.resolve({
+          ok: true,
+          result: {
+            message_id: 100 + calls.length,
+            date: 0,
+            chat: isPrivate
+              ? { id: p.chat_id, type: "private", first_name: "Tester" }
+              : { id: p.chat_id, type: "supergroup", title: "Test Group" },
+            from: { id: botInfo.id, is_bot: true, first_name: "TestBot", username: botInfo.username },
+            video: { file_id: "video_file_id", file_unique_id: "video_unique_id", width: 1280, height: 720, duration: 0, mime_type: "video/mp4" },
+            caption: p.caption ?? "",
+          },
+        })
+      }
+
       case "editMessageText":
       case "editMessageReplyMarkup":
       case "deleteMessage":

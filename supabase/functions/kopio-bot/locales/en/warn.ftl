@@ -1,0 +1,17 @@
+warn =
+  .reject-warn-button = ⚠️ Warn
+  .reason-prompt = Enter a reason for this warning, or tap Skip:
+  .skip-reason-button = Skip
+  .issued = ⚠️ Warning { $count }/{ $threshold }.
+  .banned-temp = 🚫 Temporarily banned ({ $count } warnings). Expires { $date }.
+  .banned-perm = 🚫 Permanently banned ({ $count } warnings).
+  .submit-banned-temp = 🚫 You are temporarily banned from submitting. Your ban expires on { $date }.
+  .submit-banned-perm = 🚫 You have been permanently banned from submitting content.
+  .notify-issued = ⚠️ You received a warning ({ $count }/{ $threshold }). Reason: { $reason }
+  .notify-temp = 🚫 You have been temporarily banned ({ $count } warnings). Ban expires: { $date }. Reason: { $reason }
+  .notify-perm = 🚫 You have been permanently banned ({ $count } warnings). Reason: { $reason }
+  .notify-no-reason = No reason given.
+  .remove-success = ✅ Removed { $removed } warning(s). User now has { $remaining } warning(s).
+  .remove-none = ℹ️ This user has no warnings to remove.
+  .unwarn-invalid-id = ⚠️ Usage: /unwarn <user_id>
+  .clearwarns-invalid-id = ⚠️ Usage: /clearwarns <user_id>

@@ -10,6 +10,6 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/kopio-bot/deno.json"
 entrypoint = "./functions/kopio-bot/index.ts"
-static_files = [ 
-  "./functions/kopio-bot/locales/*/*.ftl"
-  ]
+static_files = [
+  "./functions/kopio-bot/static/locales/*.ftl"
+]

@@ -1,7 +1,10 @@
 import { Composer, InlineKeyboard } from "grammy";
 import { Context, Conversation, ConversationContext } from "../context.ts";
 import { logHandle } from "../helper/logging.ts";
+import { detectContentType, extractPoll } from "../helper/content_type.ts";
 import db from "../../database/index.ts";
+import { log, userName } from "../log.ts";
+import { isConnected } from "../helper/connection.ts";
 
 const composer = new Composer<Context>();
 const feature = composer.chatType("private");
@@ -16,25 +19,72 @@ export async function submitConvo(
   conversation: Conversation,
   ctx0: ConversationContext,
 ) {
-  const broadcastId = await conversation.external((ctx) => ctx.session.connection?.broadcastId ?? null);
-
-  if (!broadcastId) {
-    await ctx0.reply(ctx0.t("submit.no_connection"));
+  const maybeConnection = await conversation.external((ctx) => ctx.session.connection);
+  if (!isConnected(ctx0, maybeConnection)) return;
+  const connection = maybeConnection!
+  
+  const userId = ctx0.from!.id;
+  const isBanned = await conversation.external(() => db.isUserBanned(userId, connection.broadcastId));
+  if (isBanned) {
+    const banStatus = await conversation.external(() => db.getBanStatus(userId, connection.broadcastId));
+    if (banStatus?.expiresAt) {
+      await ctx0.reply(ctx0.t("warn.submit-banned-temp", {
+        date: banStatus.expiresAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }),
+      }));
+    } else {
+      await ctx0.reply(ctx0.t("warn.submit-banned-perm"));
+    }
     return;
   }
 
-  await ctx0.reply(ctx0.t("submit.prompt"));
+  const connectionConfig = await conversation.external(() => db.getConnectionConfig(connection.id));
 
-  // Wait for content, re-prompting if the user sends a command instead.
-  let contentCtx = await conversation.waitFor("message");
-  while (contentCtx.message.text?.startsWith("/")) {
-    await contentCtx.reply(contentCtx.t("submit.send_content"));
-    contentCtx = await conversation.waitFor("message");
+  const cancelKeyboard = new InlineKeyboard().text(ctx0.t("command.cancel"), "submit:cancel");
+  const promptMsg = await ctx0.reply(ctx0.t("submit.prompt"), { reply_markup: cancelKeyboard });
+
+  // Wait for content, handling cancel, command re-prompts, and disallowed types.
+  let contentCtx: ConversationContext | undefined;
+  while (!contentCtx) {
+    const nextCtx = await conversation.wait();
+
+    if (nextCtx.callbackQuery?.data === "submit:cancel") {
+      await nextCtx.answerCallbackQuery();
+      await ctx0.api.editMessageText(promptMsg.chat.id, promptMsg.message_id, ctx0.t("submit.cancelled"));
+      return;
+    }
+
+    if (!nextCtx.message) continue;
+
+    if (nextCtx.message.text?.startsWith("/")) {
+      await nextCtx.reply(nextCtx.t("submit.send-content"));
+      continue;
+    }
+
+    if (!connectionConfig.allowed_types.includes(detectContentType(nextCtx.message as never))) {
+      await nextCtx.reply(nextCtx.t("submit.type-not-allowed"));
+      continue;
+    }
+
+    contentCtx = nextCtx;
   }
 
-  const message = contentCtx.message;
+  const keyboard = new InlineKeyboard()
+    .text(ctx0.t("submit.confirm-button"), "submit:confirm")
+    .text(ctx0.t("command.cancel"), "submit:cancel");
 
-  // Extract only serialisable Telegram content fields.
+  await contentCtx.reply(ctx0.t("submit.confirm-prompt"), { reply_markup: keyboard });
+
+  const confirmCtx = await conversation.waitForCallbackQuery(/^submit:(confirm|cancel)$/);
+  await confirmCtx.answerCallbackQuery();
+
+  if (confirmCtx.callbackQuery.data === "submit:cancel") {
+    await confirmCtx.editMessageText(ctx0.t("submit.cancelled"));
+    return;
+  }
+  await ctx0.api.editMessageText(promptMsg.chat.id, promptMsg.message_id, promptMsg.text, { entities: promptMsg.entities })
+
+  const message = contentCtx!.message!;
+  // Extract only relevant serialisable fields from a Message object.
   const content = {
     text: message.text,
     entities: message.entities,
@@ -47,32 +97,31 @@ export async function submitConvo(
     voice: message.voice,
     animation: message.animation,
     sticker: message.sticker,
-    poll: message.poll,
+    poll: message.poll ? extractPoll(message.poll) : undefined,
   };
 
-  const keyboard = new InlineKeyboard()
-    .text(ctx0.t("submit.confirm_button"), "submit:confirm")
-    .text(ctx0.t("submit.cancel_button"), "submit:cancel");
-
-  await contentCtx.reply(ctx0.t("submit.confirm_prompt"), { reply_markup: keyboard });
-
-  const confirmCtx = await conversation.waitForCallbackQuery(/^submit:(confirm|cancel)$/);
-  await confirmCtx.answerCallbackQuery();
-
-  if (confirmCtx.callbackQuery.data === "submit:cancel") {
-    await confirmCtx.editMessageText(ctx0.t("submit.cancelled"));
-    return;
-  }
-
-  const userId = confirmCtx.from.id;
-
-  await conversation.external(async _ => {
-    await db.createSubmission(broadcastId, userId, content);
+  const submissionId = await conversation.external(async _ => {
+    return await db.createSubmission(connection.broadcastId, userId, content);
   });
+
+  if (submissionId) {
+    log(ctx0.api, connection.logsId, {
+      type: "submission.new",
+      id: submissionId,
+      contentType: detectContentType(message as never),
+    }, { excluded: connectionConfig.log_excluded_events});
+  }
 
   await confirmCtx.editMessageText(ctx0.t("submit.success"));
 }
 
-feature.on("message", logHandle("submit-convo-active"));
+feature.command("submit", logHandle("command-submit"), async (ctx) => {
+  await ctx.conversation.enter("submitConvo");
+});
+
+feature.callbackQuery(/^submit:(confirm|cancel)$/, logHandle("callback-submit-stale"), async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.editMessageReplyMarkup();
+});
 
 export { composer as submitFeature };

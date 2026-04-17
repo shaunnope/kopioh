@@ -1,0 +1,11 @@
+import =
+  .not-admin = ⚠️ You must be an admin to import submissions.
+  .prompt = Send a JSON file exported from this bot to import submissions.
+  .send-json = Please send a .json document.
+  .not-json = ⚠️ The file must be a .json file.
+  .parse-error = ⚠️ Could not parse the file. Make sure it is a valid export from this bot.
+  .empty-file = The file contains no importable submissions.
+  .summary = Found { $total } submissions ({ $eligible } eligible for auto-approval). Choose how to import:
+  .confirm-pending = Import all as pending
+  .confirm-approve = Import & auto-approve eligible ({ $count })
+  .success = ✅ Imported { $imported } submissions ({ $approved } auto-approved).

@@ -1,0 +1,7 @@
+[
+  { "command": "start",      "description": "Start the bot" },
+  { "command": "help",       "description": "Learn how to use the bot" },
+  { "command": "ping",       "description": "Check if the bot is online and measure response time" },
+  { "command": "disconnect", "description": "Clear your current group connection" },
+  { "command": "getdata",    "description": "View your submission stats and manage your data" }
+]

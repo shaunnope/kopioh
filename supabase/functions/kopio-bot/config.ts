@@ -34,7 +34,10 @@ const configSchema = z.object({
   DB_PASSWORD: z.string().default("password"),
   DB_URL: z.string(),
   S3FS_BUCKET: z.string().default("bot-assets"),
-  LOCALES_DIR: z.string().default("locales")
+  LOCALES_DIR: z.string().default("locales"),
+  WHISPER_LIMIT: z.coerce.number().int().positive().default(3),
+  WHISPER_PERIOD_HOURS: z.coerce.number().positive().default(24),
+  SUBMISSION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, "SUBMISSION_KEY must be 64 hex chars (AES-256)"),
 })
 
 export function parseConfig(env: Deno.Env) {
@@ -50,8 +53,7 @@ export function parseConfig(env: Deno.Env) {
     : `postgresql://postgres.${config.PROJECT_ID}:${config.DB_PASSWORD}@${config.DB_URL}`
 
   const LOCALES_DIR = hydrated.env_isProd && config.PLATFORM == "supabase"
-    ? `/s3/${config.S3FS_BUCKET}/${config.LOCALES_DIR}`
-    // ? `./${config.LOCALES_DIR}`
+    ? "./static/locales"
     : config.LOCALES_DIR
     
 

@@ -9,7 +9,7 @@ export async function getConnection(api: Api, submitId: number) {
     if (!newConnection)
         return null
 
-    const connection = { id: newConnection.id, broadcastId: newConnection.broadcast_id, submitId: newConnection.submit_id }
+    const connection = { id: newConnection.id, broadcastId: newConnection.broadcast_id, submitId: newConnection.submit_id, logsId: newConnection.logs_id ?? null }
     const connectionMeta = await getConnectionMeta(api, connection.id, submitId);
 
     return { connection, connectionMeta }

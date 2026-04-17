@@ -4,10 +4,13 @@ import { assertEquals, assertExists } from "@std/assert";
 import db from "../../../database/index.ts";
 import { createTestBot } from "../../helpers/bot.ts";
 import { privateCommand, groupCommand } from "../../helpers/updates.ts";
+import { deleteDelayMs } from "../../../bot/feature/welcome.ts";
 
 const SUBMIT_ID = -9_888_003;
 const BROADCAST_ID = -9_888_004;
 const USER_ID = 9_888_002;
+const OTHER_SUBMIT_ID = -9_888_005;
+const OTHER_BROADCAST_ID = -9_888_006;
 
 describe("welcome feature", () => {
   let testBot: ReturnType<typeof createTestBot>;
@@ -60,14 +63,56 @@ describe("welcome feature", () => {
 
       const sends = testBot.calls.filter(c => c.method === "sendMessage");
       const prompt = sends.find(s =>
-        (s.payload as { text: string }).text === "What would you like to submit? Send me a message or poll.",
+        (s.payload as { text: string }).text === "{welcome.connected-to}\n{welcome.user-stats}\n\n{welcome.choose}",
       )
       assertExists(prompt)
     })
   })
 
+  describe("/start with default connection", () => {
+    beforeEach(async () => {
+      const connId = await db.createConnection(BROADCAST_ID, SUBMIT_ID);
+      await db.setDefaultConnection(connId!);
+    });
+
+    afterEach(async () => {
+      await db.deleteConnection(OTHER_SUBMIT_ID);
+    });
+
+    it("shows connected menu when user has no active connection", async () => {
+      await testBot.handleUpdate(privateCommand({ userId: USER_ID, command: "start" }));
+
+      const send = testBot.calls.find(c => c.method === "sendMessage");
+      assertExists(send);
+      assertEquals(
+        (send.payload as { text: string }).text,
+        "{welcome.connected-to}\n{welcome.user-stats}\n\n{welcome.choose}",
+      );
+    });
+
+    it("deeplink takes precedence over default connection", async () => {
+      await db.createConnection(OTHER_BROADCAST_ID, OTHER_SUBMIT_ID);
+
+      await testBot.handleUpdate(
+        privateCommand({ userId: USER_ID, command: "start", payload: String(OTHER_SUBMIT_ID) }),
+      );
+
+      const send = testBot.calls.find(c => c.method === "sendMessage");
+      assertExists(send);
+      assertEquals(
+        (send.payload as { text: string }).text,
+        "{welcome.connected-to}\n{welcome.user-stats}\n\n{welcome.choose}",
+      );
+
+      // getChat was called for the deeplinked group, not the default
+      const getChats = testBot.calls.filter(c => c.method === "getChat");
+      assertEquals((getChats[0].payload as { chat_id: number }).chat_id, OTHER_SUBMIT_ID);
+    });
+  });
+
   describe("/start in group chat", () => {
-    it("sends a help message with inline keyboard and deletes the command", async () => {
+    it("sends DM link with inline keyboard when group is an active connection", async () => {
+      await db.createConnection(BROADCAST_ID, SUBMIT_ID);
       using time = new FakeTime();
 
       await testBot.handleUpdate(groupCommand({ chatId: SUBMIT_ID, userId: USER_ID, command: "start" }));
@@ -82,7 +127,18 @@ describe("welcome feature", () => {
       const del = testBot.calls.find(c => c.method === "deleteMessage");
       assertExists(del);
 
-      await time.tickAsync(5_000);
+      await time.tickAsync(deleteDelayMs);
+    });
+
+    it("sends a setup prompt when group is not an active connection", async () => {
+      await testBot.handleUpdate(groupCommand({ chatId: SUBMIT_ID, userId: USER_ID, command: "start" }));
+
+      const send = testBot.calls.find(c => c.method === "sendMessage");
+      assertExists(send);
+      assertEquals((send.payload as { text: string }).text, "{welcome.not-connected-prompt}");
+      assertEquals((send.payload as { reply_markup?: unknown }).reply_markup, undefined);
+
+      assertEquals(testBot.calls.filter(c => c.method === "deleteMessage").length, 0);
     });
   });
 });

@@ -29,7 +29,7 @@ describe("connect feature", () => {
 
       const send = testBot.calls.find(c => c.method === "sendMessage");
       assertExists(send);
-      assertEquals((send.payload as { text: string }).text, "You must be a group owner to use this command.");
+      assertEquals((send.payload as { text: string }).text, "{connect.not-admin}");
     });
 
     it("sends payload message and edits with real message_id", async () => {
@@ -58,7 +58,7 @@ describe("connect feature", () => {
       assertExists(send);
       assertEquals(
         (send.payload as { text: string }).text,
-        "⚠️ This group is already connected to a broadcast channel. Run /disconnect to remove it first.",
+        "{connect.already-connected}",
       );
     });
   });
@@ -70,17 +70,17 @@ describe("connect feature", () => {
 
       const send = testBot.calls.find(c => c.method === "sendMessage");
       assertExists(send);
-      assertEquals((send.payload as { text: string }).text, "You must be a group owner to use this command.");
+      assertEquals((send.payload as { text: string }).text, "{connect.not-admin}");
     });
 
-    it("replies not_connected when no connection exists", async () => {
+    it("replies not-connected when no connection exists", async () => {
       await testBot.handleUpdate(groupCommand({ chatId: SUBMIT_ID, userId: USER_ID, command: "disconnect" }));
 
       const send = testBot.calls.find(c => c.method === "sendMessage");
       assertExists(send);
       assertEquals(
         (send.payload as { text: string }).text,
-        "⚠️ This group is not connected to any broadcast channel.",
+        "{connect.not-connected}",
       );
     });
 
@@ -92,7 +92,7 @@ describe("connect feature", () => {
 
       const send = testBot.calls.find(c => c.method === "sendMessage");
       assertExists(send);
-      assertEquals((send.payload as { text: string }).text, "✅ Connection removed.");
+      assertEquals((send.payload as { text: string }).text, "{connect.disconnected}");
 
       const remaining = await db.getConnectionBySubmitId(SUBMIT_ID);
       assertEquals(remaining, null);
@@ -113,7 +113,7 @@ describe("connect feature", () => {
       assertEquals(testBot.calls.filter(c => c.method === "sendMessage").length, 0);
     });
 
-    it("replies invalid_message when payload is malformed", async () => {
+    it("replies invalid-message when payload is malformed", async () => {
       await testBot.handleUpdate(
         channelPostForwarded({ chatId: BROADCAST_ID, text: "no payload here", fromBotId: BOT_ID }),
       );
@@ -122,7 +122,7 @@ describe("connect feature", () => {
       assertExists(send);
       assertEquals(
         (send.payload as { text: string }).text,
-        "⚠️ Could not read connection data from this message.",
+        "{connect.invalid-message}",
       );
     });
 
@@ -144,7 +144,7 @@ describe("connect feature", () => {
         c => c.method === "sendMessage" && (c.payload as { chat_id: number }).chat_id === SUBMIT_ID,
       );
       assertExists(successMsg);
-      assertEquals((successMsg.payload as { text: string }).text, "✅ Connection established.");
+      assertEquals((successMsg.payload as { text: string }).text, "{connect.success}");
 
       // Both messages should be deleted
       const deletes = testBot.calls.filter(c => c.method === "deleteMessage");

@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach, afterAll } from "@std/testing/bdd";
 import { assertEquals, assertExists } from "@std/assert";
 import db from "../../../database/index.ts";
+import { encryptUserId } from "../../../database/crypto.ts";
 import { createTestBot } from "../../helpers/bot.ts";
 import { privateCommand, privateMessage, callbackQuery } from "../../helpers/updates.ts";
 
@@ -19,7 +20,7 @@ describe("submit feature", () => {
     await db.deleteConnection(SUBMIT_ID);
     const conn = await db.pool.connect();
     try {
-      await conn.queryObject`DELETE FROM submissions WHERE created_by = ${USER_ID}`;
+      await conn.queryObject({ text: `DELETE FROM submissions WHERE created_by = $1`, args: [await encryptUserId(USER_ID)] });
       await conn.queryObject`DELETE FROM users WHERE id = ${USER_ID}`;
       // Clear conversation and session storage for this user between tests
       await conn.queryObject`DELETE FROM bot_conversations WHERE key LIKE ${"%" + USER_ID + "%"}`;
@@ -31,7 +32,7 @@ describe("submit feature", () => {
 
   afterAll(() => db.pool.end());
 
-  it("prompts for content after /start with a valid connection", async () => {
+  it("prompts for content after selecting `submit` callback", async () => {
     await db.coerceUser(USER_ID);
     await db.createConnection(BROADCAST_ID, SUBMIT_ID);
     testBot.clearCalls();
@@ -39,10 +40,11 @@ describe("submit feature", () => {
     await testBot.handleUpdate(
       privateCommand({ userId: USER_ID, command: "start", payload: String(SUBMIT_ID) }),
     );
+    await testBot.handleUpdate(callbackQuery({ userId: USER_ID, chatId: USER_ID, data: "welcome:choose:submit" })); 
 
     const sends = testBot.calls.filter(c => c.method === "sendMessage");
     const prompt = sends.find(s =>
-      (s.payload as { text: string }).text === "What would you like to submit? Send me a message or poll.",
+      (s.payload as { text: string }).text === "{submit.prompt}",
     );
     assertExists(prompt);
   });
@@ -54,6 +56,7 @@ describe("submit feature", () => {
     await testBot.handleUpdate(
       privateCommand({ userId: USER_ID, command: "start", payload: String(SUBMIT_ID) }),
     );
+    await testBot.handleUpdate(callbackQuery({ userId: USER_ID, chatId: USER_ID, data: "welcome:choose:submit" })); 
     testBot.clearCalls();
 
     // Send a command — should be rejected
@@ -61,7 +64,7 @@ describe("submit feature", () => {
 
     const sends = testBot.calls.filter(c => c.method === "sendMessage")
     const prompt = sends.find(s =>
-      (s.payload as { text: string }).text === "Please send a message or poll, not a command.",
+      (s.payload as { text: string }).text === "{submit.send-content}",
     )
     assertExists(prompt)
   })
@@ -74,17 +77,13 @@ describe("submit feature", () => {
       privateCommand({ userId: USER_ID, command: "start", payload: String(SUBMIT_ID) }),
     );
 
+    await testBot.handleUpdate(callbackQuery({ userId: USER_ID, chatId: USER_ID, data: "welcome:choose:submit" })); 
+
     await testBot.handleUpdate(privateMessage({ userId: USER_ID, text: "My post content" }));
 
-    const menus = testBot.calls.filter(c =>
-      c.method === "sendMessage" &&
-      (c.payload as { reply_markup?: unknown }).reply_markup !== undefined
-    );
-
-    const send = menus[0];
-    assertExists(send)
-    
-    const markup = (send.payload as { reply_markup?: { inline_keyboard: { callback_data: string }[][] } }).reply_markup;
+    const confirm = testBot.calls.find(c => (c.payload as { text: string}).text === "{submit.confirm-prompt}")
+    assertExists(confirm)
+    const markup = (confirm.payload as { reply_markup?: { inline_keyboard: { callback_data: string }[][] } }).reply_markup;
     assertExists(markup);
     const buttons = markup.inline_keyboard.flat();
     assertEquals(buttons.some(b => b.callback_data === "submit:confirm"), true);
@@ -95,10 +94,12 @@ describe("submit feature", () => {
     await db.coerceUser(USER_ID);
     await db.createConnection(BROADCAST_ID, SUBMIT_ID);
 
-    // Step 1: enter conversation
+    // Step 1: connect + request submit
     await testBot.handleUpdate(
       privateCommand({ userId: USER_ID, command: "start", payload: String(SUBMIT_ID) }),
     );
+
+    await testBot.handleUpdate(callbackQuery({ userId: USER_ID, chatId: USER_ID, data: "welcome:choose:submit" }));
 
     // Step 2: send content
     await testBot.handleUpdate(privateMessage({ userId: USER_ID, text: "My post content" }));
@@ -107,16 +108,18 @@ describe("submit feature", () => {
     // Step 3: confirm
     await testBot.handleUpdate(callbackQuery({ userId: USER_ID, chatId: USER_ID, data: "submit:confirm" }));
 
-    const edit = testBot.calls.find(c => c.method === "editMessageText");
-    assertExists(edit);
-    assertEquals((edit.payload as { text: string }).text, "✅ Your submission is now under review.");
+    const edits = testBot.calls.filter(c => c.method === "editMessageText")
+    assertEquals(edits.length, 2)
+    assertEquals((edits[0].payload as { text: string }).text, "{submit.prompt}")
+    assertEquals((edits[1].payload as { text: string }).text, "{submit.success}")
 
     // Verify the submission was persisted
     const conn = await db.pool.connect();
     try {
-      const { rows } = await conn.queryObject<{ broadcast_id: number; content: { text: string } }>`
-        SELECT broadcast_id, content FROM submissions WHERE created_by = ${USER_ID} LIMIT 1
-      `;
+      const { rows } = await conn.queryObject<{ broadcast_id: number; content: { text: string } }>({
+        text: `SELECT broadcast_id, content FROM submissions WHERE created_by = $1 LIMIT 1`,
+        args: [await encryptUserId(USER_ID)],
+      });
       assertExists(rows[0]);
       assertEquals(Number(rows[0].broadcast_id), BROADCAST_ID);
       assertEquals(rows[0].content.text, "My post content");
@@ -132,6 +135,8 @@ describe("submit feature", () => {
     await testBot.handleUpdate(
       privateCommand({ userId: USER_ID, command: "start", payload: String(SUBMIT_ID) }),
     );
+    await testBot.handleUpdate(callbackQuery({ userId: USER_ID, chatId: USER_ID, data: "welcome:choose:submit" }));
+
     await testBot.handleUpdate(privateMessage({ userId: USER_ID, text: "Draft post" }));
     testBot.clearCalls();
 
@@ -139,14 +144,15 @@ describe("submit feature", () => {
 
     const edit = testBot.calls.find(c => c.method === "editMessageText");
     assertExists(edit);
-    assertEquals((edit.payload as { text: string }).text, "Submission cancelled.");
+    assertEquals((edit.payload as { text: string }).text, "{submit.cancelled}");
 
     // Verify nothing was persisted
     const conn = await db.pool.connect();
     try {
-      const { rows } = await conn.queryObject`
-        SELECT id FROM submissions WHERE created_by = ${USER_ID}
-      `;
+      const { rows } = await conn.queryObject({
+        text: `SELECT id FROM submissions WHERE created_by = $1`,
+        args: [await encryptUserId(USER_ID)],
+      });
       assertEquals(rows.length, 0);
     } finally {
       conn.release();

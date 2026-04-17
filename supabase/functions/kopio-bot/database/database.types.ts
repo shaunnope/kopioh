@@ -108,7 +108,7 @@ export type Database = {
         Row: {
           id: string
           broadcast_id: number
-          created_by: number
+          created_by: string | null
           content: Json
           original_content: Json | null
           created_at: string
@@ -121,7 +121,7 @@ export type Database = {
         Insert: {
           id?: string
           broadcast_id: number
-          created_by: number
+          created_by: string
           content: Json
           original_content?: Json | null
           created_at?: string
@@ -134,7 +134,7 @@ export type Database = {
         Update: {
           id?: string
           broadcast_id?: number
-          created_by?: number
+          created_by?: string | null
           content?: Json
           original_content?: Json | null
           created_at?: string
@@ -145,13 +145,6 @@ export type Database = {
           is_rejected?: boolean
         }
         Relationships: [
-          {
-            foreignKeyName: "submissions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "submissions_reviewed_by_fkey"
             columns: ["reviewed_by"]

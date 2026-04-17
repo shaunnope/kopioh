@@ -1,0 +1,44 @@
+queue =
+  .created = ✅ Queue "{ $name }" created ({ $schedule }).
+  .name-taken = ⚠️ A queue named "{ $name }" already exists.
+  .not-found = ⚠️ Queue not found. Use /queues to see available queues.
+  .deleted = ✅ Deleted queue: { $name }
+  .none = No queues set up yet. Use /newqueue to create one.
+  .list-header = 📋 Queues:
+  .list-item = • { $name } — every { $interval } min { $auto ->
+      [true]  (auto-post on)
+     *[false] (auto-post off)
+    }
+  .select-prompt = Which queue should this go to?
+  .no-queue-button = ↷ No queue
+  .not-admin = ⚠️ You need admin access to manage queues.
+  .deletequeue-usage = Usage: /deletequeue <name>
+  .viewqueue-usage = Usage: /viewqueue <name>
+  .view-item = { $position }/{ $total } in queue
+  .view-empty = 📭 No approved submissions waiting in this queue.
+  .view-done = ✅ Reviewed all { $total } submission(s) in this queue.
+  .edit-button = ✏️ Edit
+  .skip-button = ⏭️ Skip
+  .exit-button = ✕ Exit
+  .edit-saved = ✅ Updated.
+  .edit-cancelled = Cancelled.
+  .create-name-prompt = Enter a name for the new queue:
+  .create-schedule-prompt = Choose a schedule type:
+  .schedule-interval-button = ⏱ Interval
+  .schedule-fixed-button = 📌 Fixed times
+  .create-interval-prompt = Enter posting interval in minutes (must be a multiple of 30, e.g. 60):
+  .create-interval-invalid = ⚠️ Must be a positive multiple of 30 (e.g. 30, 60, 90). Try again:
+  .create-start-prompt = Enter start time in HH:MM (e.g. 08:00):
+  .create-end-prompt = Enter end time in HH:MM (e.g. 23:00):
+  .create-time-invalid = ⚠️ Invalid time. Use HH:MM format (e.g. 09:30). Try again:
+  .create-times-prompt = Enter posting times as comma-separated HH:MM (e.g. 09:00,12:00,18:00):
+  .create-times-invalid = ⚠️ Invalid times. Use comma-separated HH:MM values (e.g. 09:00,12:00). Try again:
+  .create-timezone-prompt = Enter a timezone (e.g. Asia/Singapore, America/New_York), or tap UTC for the default:
+  .create-timezone-invalid = ⚠️ Unknown timezone. Try again (e.g. Asia/Singapore):
+  .create-days-prompt = Which days should this queue post? Tap "Every day" or type day names (e.g. Mon,Tue,Wed,Thu,Fri):
+  .create-days-everyday = 📅 Every day
+  .create-days-invalid = ⚠️ Invalid days. Use day names separated by commas (e.g. Mon,Tue,Fri) or type "all". Try again:
+  .create-threshold-prompt = How many submissions remaining should trigger a low-queue alert?
+  .create-threshold-default = 5 (default)
+  .create-threshold-off = 0 (off)
+  .empty-warning = ⚠️ { $remaining } submission(s) left in queue { $name }.

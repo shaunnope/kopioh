@@ -1,1 +1,2 @@
-unit_ms = ms
+unit =
+  .ms = ms

@@ -6,19 +6,27 @@ import { UserFromGetMe } from "grammy/types";
 
 import type { Context } from "./context.ts";
 import type { SessionData } from "./session.ts";
-import i18n from "./i18n.ts";
+import i18n, { waitForLocales } from "./i18n.ts";
 import { initial } from "./session.ts";
 
 import { welcomeFeature } from "./feature/welcome.ts";
 import { connectionFeature } from "./feature/connect.ts";
 import { submitFeature, submitConvo } from "./feature/submit.ts";
 import { moderateFeature, moderateConvo } from "./feature/moderate.ts";
+import { queueFeature, viewQueueConvo, newQueueConvo } from "./feature/queue.ts";
+import { whisperFeature, whisperConvo } from "./feature/whisper.ts";
+import { settingsFeature, logChannelConvo } from "./feature/settings.ts";
 import { config } from "../config.ts";
+import { helpFeature } from "./feature/help.ts";
 import { miscFeature } from "./feature/misc.ts";
 import { privacyFeature } from "./feature/privacy.ts";
+import { adminFeature } from "./feature/admin.ts";
+import { exportFeature } from "./feature/export.ts";
+import { importFeature, importConvo } from "./feature/import.ts";
 import { unhandledHandler } from "./feature/unhandler.ts";
 import db from "../database/index.ts";
 import { logger } from "../logger.ts";
+import { globalFeature } from "./feature/global.ts";
 
 interface BotOptions {
   botInfo?: UserFromGetMe
@@ -35,7 +43,7 @@ export function getBot(opts: BotOptions = {}) {
 
   opts.sessionStorage = opts.sessionStorage ?? db.createStorageAdapter("bot_sessions")
   opts.conversationStorage = opts.conversationStorage ?? db.createStorageAdapter("bot_conversations")
-  let convoTransformer: MiddlewareFn = async (_, next) => await next()
+  let convoTransformer: MiddlewareFn = waitForLocales
 
   if (opts.transformer) {
     const transformer = opts.transformer
@@ -43,10 +51,9 @@ export function getBot(opts: BotOptions = {}) {
 
     convoTransformer = async (ctx, next) => {
       ctx.api.config.use(transformer)
-      await next()
+      await waitForLocales(ctx, next)
     }
   }
-
 
   // Base Middleware
   bot.use(hydrate())
@@ -64,20 +71,41 @@ export function getBot(opts: BotOptions = {}) {
   // Conversations (must be registered before the handlers that enter them)
   bot.use(createConversation(submitConvo))
   bot.use(createConversation(moderateConvo))
+  bot.use(createConversation(whisperConvo))
+  bot.use(createConversation(newQueueConvo))
+  bot.use(createConversation(viewQueueConvo))
+  bot.use(createConversation(logChannelConvo))
+  bot.use(createConversation(importConvo))
+
+  bot.use(waitForLocales)
+
+  // Drop messages automatically forwarded from a linked channel into the discussion group
+  bot.use((ctx, next) => {
+    if (ctx.msg?.is_automatic_forward) return;
+    return next();
+  })
 
   // Handlers
   bot.use(welcomeFeature)
   bot.use(connectionFeature)
   bot.use(submitFeature)
   bot.use(moderateFeature)
+  bot.use(queueFeature)
+  bot.use(whisperFeature)
+  bot.use(settingsFeature)
 
+  bot.use(helpFeature)
   bot.use(miscFeature)
   bot.use(privacyFeature)
+  bot.use(adminFeature)
+  bot.use(exportFeature)
+  bot.use(importFeature)
 
   // if (isMultipleLocales) {
   //   bot.use(languageFeature)
   // }
 
+  bot.use(globalFeature)
   bot.use(unhandledHandler)
 
   bot.catch((err) => {

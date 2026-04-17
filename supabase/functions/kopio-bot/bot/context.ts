@@ -7,7 +7,7 @@ import type { I18nFlavor } from "grammy_i18n";
 import type { ConversationFlavor, Conversation as DefaultConversation } from "grammy_conversations";
 import { SessionFlavor } from "./session.ts";
 
-type BaseContext = DefaultContext & I18nFlavor
+export type BaseContext = DefaultContext & I18nFlavor
 
 export type ConversationContext = 
   HydrateFlavor<BaseContext>
