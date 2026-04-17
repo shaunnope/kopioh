@@ -96,14 +96,14 @@ function sendApprovedSubmission(api: ReturnType<typeof ctx_api>, chatId: number,
       allows_multiple_answers?: boolean;
       correct_option_id?: number;
       explanation?: string;
-      is_anonymous?: boolean;
     };
+    
     return api.sendPoll(chatId, poll.question, poll.options, {
       type: poll.type,
       allows_multiple_answers: poll.allows_multiple_answers,
       correct_option_ids: poll.correct_option_id != null ? [poll.correct_option_id] : undefined,
       explanation: poll.explanation,
-      is_anonymous: poll.is_anonymous,
+      is_anonymous: true, // Cannot send non-anonymous polls to channel
     });
   }
   // Default: text message

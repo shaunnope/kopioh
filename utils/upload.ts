@@ -8,8 +8,8 @@
 //   deno run --allow-env --allow-read --allow-net --env-file=.env.prod utils/upload.ts [source-dir]
 //   source-dir defaults to supabase/functions/kopio-bot/locales/
 
-import { walk } from "@std/fs/walk";
-import { relative } from "@std/path";
+import { walk } from "jsr:@std/fs/walk";
+import { relative } from "jsr:@std/path";
 
 const PROJECT_ID  = Deno.env.get("PROJECT_ID");
 const PLATFORM_KEY = Deno.env.get("PLATFORM_KEY");

@@ -12,7 +12,7 @@ async function deploy() {
     {
       const FUNCTION = Deno.env.get("FUNCTION")
       if (!FUNCTION) throw new Error("FUNCTION is unset");
-
+      console.log(`Deploying ${FUNCTION} to ${PLATFORM}@${PROJECT_REF}`)
       // deploy function
       const res = await runCommand("supabase", [
         "functions",

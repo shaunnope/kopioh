@@ -51,7 +51,9 @@ export function parseConfig(env: Deno.Env) {
 
   const LOCALES_DIR = hydrated.env_isProd && config.PLATFORM == "supabase"
     ? `/s3/${config.S3FS_BUCKET}/${config.LOCALES_DIR}`
+    // ? `./${config.LOCALES_DIR}`
     : config.LOCALES_DIR
+    
 
   return {
     ...hydrated,
