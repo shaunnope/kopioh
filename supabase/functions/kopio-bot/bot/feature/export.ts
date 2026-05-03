@@ -12,14 +12,14 @@ feature.command("export", logHandle("command-export"), async (ctx) => {
   if (!userId) return;
 
   const connection = ctx.session.connection;
-  if (!isConnected(ctx, connection)) return;
+  if (!isConnected(ctx, connection) || !connection) return;
 
-  if (!await db.isUserAdmin(userId, connection!.id)) {
+  if (await db.getConnectionRole(userId, connection.id) !== "admin") {
     await ctx.reply(ctx.t("export.not-admin"));
     return;
   }
 
-  const rows = await db.getSubmissionsForExport(connection!.broadcastId);
+  const rows = await db.getSubmissionsForExport(connection.broadcastId);
   if (rows.length === 0) {
     await ctx.reply(ctx.t("export.empty"));
     return;
@@ -28,7 +28,7 @@ feature.command("export", logHandle("command-export"), async (ctx) => {
   const json = JSON.stringify(rows, null, 2);
   const bytes = new TextEncoder().encode(json);
   const date = new Date().toISOString().slice(0, 10);
-  const filename = `submissions.${connection!.broadcastId}-${date}.json`;
+  const filename = `submissions.${connection.broadcastId}-${date}.json`;
 
   await ctx.replyWithDocument(new InputFile(bytes, filename), {
     caption: ctx.t("export.caption", { count: rows.length }),

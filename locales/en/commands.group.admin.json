@@ -1,0 +1,7 @@
+[
+  { "command": "connect",    "description": "Link this group to a broadcast channel" },
+  { "command": "disconnect", "description": "Unlink this group from its broadcast channel" },
+  { "command": "mod",        "description": "Grant a member moderator access" },
+  { "command": "unmod",      "description": "Revoke a member's moderator access" },
+  { "command": "resetroles", "description": "Reset all connection roles (group owner only)" }
+]

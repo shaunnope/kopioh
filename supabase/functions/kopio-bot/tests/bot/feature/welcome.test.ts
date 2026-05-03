@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach, afterAll } from "@std/testing/bdd";
 import { FakeTime } from "@std/testing/time";
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertStrictEquals } from "@std/assert";
 import db from "../../../database/index.ts";
 import { createTestBot } from "../../helpers/bot.ts";
 import { privateCommand, groupCommand } from "../../helpers/updates.ts";
@@ -88,6 +88,15 @@ describe("welcome feature", () => {
         (send.payload as { text: string }).text,
         "{welcome.connected-to}\n{welcome.user-stats}\n\n{welcome.choose}",
       );
+    });
+
+    it("calls getChat with a JS number chat_id (not BigInt) for default connection", async () => {
+      await testBot.handleUpdate(privateCommand({ userId: USER_ID, command: "start" }));
+
+      const getChat = testBot.calls.find(c => c.method === "getChat");
+      assertExists(getChat);
+      assertStrictEquals(typeof (getChat.payload as { chat_id: unknown }).chat_id, "number");
+      assertEquals((getChat.payload as { chat_id: number }).chat_id, SUBMIT_ID);
     });
 
     it("deeplink takes precedence over default connection", async () => {

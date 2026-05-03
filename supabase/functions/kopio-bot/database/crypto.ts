@@ -25,6 +25,25 @@ export async function decryptUserId(hex: string): Promise<number> {
   return Number(new DataView(plain).getBigInt64(0, false));
 }
 
+// Random IV: non-deterministic, used where equality queries are not needed.
+// Stored as iv_hex (32 chars) + ciphertext_hex (64 chars) = 96 hex chars total.
+
+export async function encryptSubmissionId(submissionId: string): Promise<string> {
+  const key = await getKey();
+  const plain = hexToBytes(submissionId.replace(/-/g, "")); // UUID → 16 bytes
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const cipher = await crypto.subtle.encrypt({ name: "AES-CBC", iv }, key, plain);
+  return bytesToHex(iv) + bytesToHex(new Uint8Array(cipher));
+}
+
+export async function decryptSubmissionId(encoded: string): Promise<string> {
+  const key = await getKey();
+  const iv = hexToBytes(encoded.slice(0, 32));
+  const plain = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, key, hexToBytes(encoded.slice(32)));
+  const h = bytesToHex(new Uint8Array(plain));
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
 function hexToBytes(hex: string): ArrayBuffer {
   const buf = new ArrayBuffer(hex.length / 2);
   const view = new Uint8Array(buf);

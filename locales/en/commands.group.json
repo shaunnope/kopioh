@@ -1,7 +1,4 @@
 [
-  { "command": "start",      "description": "Open the bot in private chat to connect" },
-  { "command": "connect",    "description": "Link this group to a broadcast channel (admin only)" },
-  { "command": "disconnect", "description": "Unlink this group from its broadcast channel (admin only)" },
-  { "command": "mod",        "description": "Grant a member moderator access (admin only)" },
-  { "command": "unmod",      "description": "Revoke a member's moderator access (admin only)" }
+  { "command": "start", "description": "Open the bot in private chat to connect" },
+  { "command": "help",  "description": "Get help using the bot in this group" }
 ]

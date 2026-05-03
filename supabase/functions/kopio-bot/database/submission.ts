@@ -351,3 +351,35 @@ export async function importSubmissions(
     conn.release();
   }
 }
+
+export async function getConnectionSubmissionStats(
+  userId: number,
+  broadcastId: number,
+): Promise<{ total: number; approved: number; pending: number }> {
+  const conn = await pool.connect();
+  try {
+    const { rows } = await conn.queryObject<{ total: string; approved: string; pending: string }>({
+      text: `
+        SELECT
+          COUNT(*)::text                                                                                  AS total,
+          COUNT(*) FILTER (WHERE reviewed_by IS NOT NULL AND is_rejected = FALSE)::text                  AS approved,
+          COUNT(*) FILTER (WHERE reviewed_by IS NULL AND is_rejected = FALSE AND posted_at IS NULL)::text AS pending
+        FROM submissions
+        WHERE created_by = $1
+          AND broadcast_id = $2
+      `,
+      args: [await encryptUserId(userId), broadcastId],
+    });
+    const row = rows[0];
+    return {
+      total:    Number(row?.total    ?? 0),
+      approved: Number(row?.approved ?? 0),
+      pending:  Number(row?.pending  ?? 0),
+    };
+  } catch (error) {
+    logger.error({ msg: "db.getConnectionSubmissionStats failed", userId, broadcastId, error });
+    return { total: 0, approved: 0, pending: 0 };
+  } finally {
+    conn.release();
+  }
+}

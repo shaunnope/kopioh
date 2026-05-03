@@ -164,6 +164,53 @@ describe("moderate feature", () => {
     assertEquals((edit.payload as { text: string }).text, "{moderate.submission-meta}\n\n{moderate.skipped}");
   });
 
+  it("skip advances to the next pending submission", async () => {
+    await setupModerator();
+    await db.createSubmission(BROADCAST_ID, SUBMITTER_ID, { text: "first" });
+    await db.createSubmission(BROADCAST_ID, SUBMITTER_ID, { text: "second" });
+    await enterModerateConvo();
+    testBot.clearCalls();
+
+    // Skip the first — should show the second (regression: was always showing first)
+    await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "mod:skip" }));
+
+    const sends = testBot.calls.filter((c) => c.method === "sendMessage");
+    assertExists(sends.find((s) => (s.payload as { text: string }).text === "second"));
+  });
+
+  it("skipped submissions are unclaimed when the queue is exhausted", async () => {
+    await setupModerator();
+    await db.createSubmission(BROADCAST_ID, SUBMITTER_ID, { text: "only submission" });
+    await enterModerateConvo();
+    testBot.clearCalls();
+
+    // Skip the only submission — stays claimed while we look for more, then released at done
+    await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "mod:skip" }));
+
+    const sends = testBot.calls.filter((c) => c.method === "sendMessage");
+    assertExists(sends.find((s) => (s.payload as { text: string }).text === "{moderate.done}"));
+
+    const pending = await db.countPendingSubmissions(BROADCAST_ID);
+    assertEquals(pending, 1);
+  });
+
+  it("skipped submissions are unclaimed on exit", async () => {
+    await setupModerator();
+    await db.createSubmission(BROADCAST_ID, SUBMITTER_ID, { text: "will be skipped" });
+    await db.createSubmission(BROADCAST_ID, SUBMITTER_ID, { text: "will be exited" });
+    await enterModerateConvo();
+    testBot.clearCalls();
+
+    await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "mod:skip" }));
+    testBot.clearCalls();
+
+    await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "mod:exit" }));
+
+    // Both the current and skipped submission should be back in the pending queue
+    const pending = await db.countPendingSubmissions(BROADCAST_ID);
+    assertEquals(pending, 2);
+  });
+
   it("exits review, unclaims the submission, and appends exited text", async () => {
     await setupModerator();
     await db.createSubmission(BROADCAST_ID, SUBMITTER_ID, { text: "Exit post" });

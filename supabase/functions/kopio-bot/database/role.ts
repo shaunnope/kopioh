@@ -1,39 +1,14 @@
 import { logger } from "../logger.ts";
 import { pool } from "./pool.ts";
 
-/**
- * Check if a user has admin access for a given connection.
- * Only the per-connection role (connection_roles.role) is considered.
- */
-export async function isUserAdmin(userId: number, connectionId: string): Promise<boolean> {
-  const conn = await pool.connect();
-  try {
-    const { rows } = await conn.queryObject<{ role: string }>({
-      text: `
-        SELECT COALESCE(cr.role::text, 'user') AS role
-        FROM users u
-        LEFT JOIN connection_roles cr
-          ON cr.user_id = u.id AND cr.connection_id = $2
-        WHERE u.id = $1
-      `,
-      args: [userId, connectionId],
-    });
-    const row = rows[0];
-    if (!row) return false;
-    return row.role === "admin";
-  } catch (error) {
-    logger.error({ msg: "db.isUserAdmin failed", userId, connectionId, error });
-    return false;
-  } finally {
-    conn.release();
-  }
-}
+export type ConnectionRole = "user" | "moderator" | "admin";
 
 /**
- * Check if a user has moderator or admin access for a given connection.
- * Only the per-connection role (connection_roles.role) is considered.
+ * Return the role a user holds for a given connection.
+ * Falls back to 'user' when no explicit role has been assigned.
+ * Returns 'user' on any error so callers always get a safe default.
  */
-export async function isUserModerator(userId: number, connectionId: string): Promise<boolean> {
+export async function getConnectionRole(userId: number, connectionId: string): Promise<ConnectionRole> {
   const conn = await pool.connect();
   try {
     const { rows } = await conn.queryObject<{ role: string }>({
@@ -46,12 +21,10 @@ export async function isUserModerator(userId: number, connectionId: string): Pro
       `,
       args: [userId, connectionId],
     });
-    const row = rows[0];
-    if (!row) return false;
-    return row.role === "moderator" || row.role === "admin";
+    return (rows[0]?.role ?? "user") as ConnectionRole;
   } catch (error) {
-    logger.error({ msg: "db.isUserModerator failed", userId, connectionId, error });
-    return false;
+    logger.error({ msg: "db.getConnectionRole failed", userId, connectionId, error });
+    return "user";
   } finally {
     conn.release();
   }
@@ -64,7 +37,7 @@ export async function isUserModerator(userId: number, connectionId: string): Pro
 export async function assignConnectionRole(
   userId: number,
   connectionId: string,
-  role: "user" | "moderator" | "admin",
+  role: ConnectionRole,
 ): Promise<void> {
   const conn = await pool.connect();
   try {

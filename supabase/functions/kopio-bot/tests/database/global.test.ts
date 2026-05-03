@@ -1,5 +1,5 @@
 import { describe, it, afterEach, afterAll } from "@std/testing/bdd";
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertStrictEquals } from "@std/assert";
 import db from "../../database/index.ts";
 
 const SUBMIT_ID = -9_888_020;
@@ -31,6 +31,16 @@ describe("db global", () => {
       assertEquals(result.id, id);
       assertEquals(Number(result.submitId), SUBMIT_ID);
       assertEquals(Number(result.broadcastId), BROADCAST_ID);
+    });
+
+    it("returns submitId and broadcastId as JS numbers, not BigInt", async () => {
+      const id = await db.createConnection(BROADCAST_ID, SUBMIT_ID);
+      await db.setDefaultConnection(id!);
+
+      const result = await db.getDefaultConnection();
+      assertExists(result);
+      assertStrictEquals(typeof result.submitId, "number");
+      assertStrictEquals(typeof result.broadcastId, "number");
     });
 
     it("returns null after the default connection is deleted", async () => {

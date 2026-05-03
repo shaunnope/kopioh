@@ -3,6 +3,7 @@ import type { CommandContext } from "grammy"
 import type { Context } from "../context.ts"
 import {
   getGroupChatCommands,
+  getGroupChatAdminCommands,
   getLanguageCommand,
   getPrivateChatAdminCommands,
   getPrivateChatCommands,
@@ -40,22 +41,35 @@ export async function setCommandsHandler(ctx: CommandContext<Context>) {
     await Promise.all(requests)
   }
 
-  // set group chat commands
+  // set group chat commands (all members)
   await ctx.api.setMyCommands(getGroupChatCommands(DEFAULT_LANGUAGE_CODE), {
     scope: {
       type: "all_group_chats",
     },
   })
 
+  // set group chat commands (admins only)
+  await ctx.api.setMyCommands(getGroupChatAdminCommands(DEFAULT_LANGUAGE_CODE), {
+    scope: {
+      type: "all_chat_administrators",
+    },
+  })
+
   if (isMultipleLocales) {
-    const requests = i18n.locales.map(code =>
+    const requests = i18n.locales.flatMap(code => [
       ctx.api.setMyCommands(getGroupChatCommands(code), {
         language_code: code as LanguageCode,
         scope: {
           type: "all_group_chats",
         },
       }),
-    )
+      ctx.api.setMyCommands(getGroupChatAdminCommands(code), {
+        language_code: code as LanguageCode,
+        scope: {
+          type: "all_chat_administrators",
+        },
+      }),
+    ])
 
     await Promise.all(requests)
   }

@@ -12,7 +12,14 @@ export async function getConnectionBySubmitId(submitId: number) {
       SELECT id, broadcast_id, submit_id, logs_id FROM connections WHERE submit_id = ${submitId} LIMIT 1
     `;
     logger.trace({ msg: "db.getConnectionBySubmitId", submitId, found: rows.length > 0 });
-    return rows[0] ?? null;
+    const row = rows[0];
+    if (!row) return null;
+    return { 
+      ...row, 
+      broadcast_id: Number(row.broadcast_id), 
+      submit_id: Number(row.submit_id), 
+      logs_id: row.logs_id != null ? Number(row.logs_id) : null 
+    };
   } catch (error) {
     logger.error({ msg: "db.getConnectionBySubmitId failed", submitId, error });
     return null;

@@ -14,6 +14,15 @@ command =
 commands =
   .start = Start or connect to a group
   .submit = Submit a message to the connected group
+  .help = Learn how to use the bot
+  .ping = Check if the bot is online and measure response time
+  .connect = Link this group to a broadcast channel
+  .disconnect = Unlink this group from its broadcast channel
+  .mod = Grant a member moderator access
+  .unmod = Revoke a member's moderator access
+  .resetroles = Reset all connection roles
+  .settemplate = Set prefix, suffix, or counter for a queue
+  .setcommands = Update the bot's command menu
 
 command-ping =
   .ping = Ping
@@ -128,6 +137,19 @@ command-help =
   .example = Example
   .examples = Examples
   .command = Command
+
+# --- import.ftl ---
+import =
+  .not-admin = ⚠️ You must be an admin to import submissions.
+  .prompt = Send a JSON file exported from this bot to import submissions.
+  .send-json = Please send a .json document.
+  .not-json = ⚠️ The file must be a .json file.
+  .parse-error = ⚠️ Could not parse the file. Make sure it is a valid export from this bot.
+  .empty-file = The file contains no importable submissions.
+  .summary = Found { $total } submissions ({ $eligible } eligible for auto-approval). Choose how to import:
+  .confirm-pending = Import all as pending
+  .confirm-approve = Import & auto-approve eligible ({ $count })
+  .success = ✅ Imported { $imported } submissions ({ $approved } auto-approved).
 
 # --- moderate.ftl ---
 moderate =
@@ -249,6 +271,22 @@ queue =
   .create-threshold-default = 5 (default)
   .create-threshold-off = 0 (off)
   .empty-warning = ⚠️ { $remaining } submission(s) left in queue { $name }.
+  .settemplate-usage = Usage: /settemplate <queue name>
+  .template-header = Template for "{ $name }":
+  .template-current-prefix = Prefix: { $value }
+  .template-current-suffix = Suffix: { $value }
+  .template-counter-on = Counter: on
+  .template-counter-off = Counter: off
+  .template-none = (none)
+  .template-prefix-prompt = Enter a new prefix, or tap a button:
+  .template-suffix-prompt = Enter a new suffix, or tap a button:
+  .template-counter-prompt = Use auto-incrementing { "{counter}" } placeholder?
+  .template-skip-button = → Keep current
+  .template-clear-button = ✕ Clear
+  .template-yes-button = ✓ Yes
+  .template-no-button = ✕ No
+  .template-cancel-button = ✕ Cancel
+  .template-saved = ✅ Template saved.
 
 # --- settings.ftl ---
 settings =
@@ -339,6 +377,24 @@ unhandled = Try /start
 # --- units.ftl ---
 unit =
   .ms = ms
+
+# --- userinfo.ftl ---
+userinfo = User
+  .button = 👤 User Info
+  .header = 👤 User
+  .role = Role:
+  .warnings = Warnings:
+  .stats = Submissions: { $total } total · { $approved } approved · { $pending } pending
+  .forward-hidden = This user's account is hidden here — their ID is not available.
+  .not-admin = You must be a connection admin to use this.
+
+userinfo-ban = Ban:
+  .none = none
+  .temp = until { $date }
+  .perm = permanent
+
+command-userinfo = userinfo
+  .usage = /{ command-userinfo } <user_id>
 
 # --- warn.ftl ---
 warn =

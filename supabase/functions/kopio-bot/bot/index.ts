@@ -13,7 +13,7 @@ import { welcomeFeature } from "./feature/welcome.ts";
 import { connectionFeature } from "./feature/connect.ts";
 import { submitFeature, submitConvo } from "./feature/submit.ts";
 import { moderateFeature, moderateConvo } from "./feature/moderate.ts";
-import { queueFeature, viewQueueConvo, newQueueConvo } from "./feature/queue.ts";
+import { queueFeature, viewQueueConvo, newQueueConvo, setTemplateConvo } from "./feature/queue.ts";
 import { whisperFeature, whisperConvo } from "./feature/whisper.ts";
 import { settingsFeature, logChannelConvo } from "./feature/settings.ts";
 import { config } from "../config.ts";
@@ -23,6 +23,9 @@ import { privacyFeature } from "./feature/privacy.ts";
 import { adminFeature } from "./feature/admin.ts";
 import { exportFeature } from "./feature/export.ts";
 import { importFeature, importConvo } from "./feature/import.ts";
+import { userinfoFeature } from "./feature/userinfo.ts";
+import { warningsFeature } from "./feature/warnings.ts";
+import { appealFeature, appealConvo, rejectAppealConvo } from "./feature/appeal.ts";
 import { unhandledHandler } from "./feature/unhandler.ts";
 import db from "../database/index.ts";
 import { logger } from "../logger.ts";
@@ -43,6 +46,7 @@ export function getBot(opts: BotOptions = {}) {
 
   opts.sessionStorage = opts.sessionStorage ?? db.createStorageAdapter("bot_sessions")
   opts.conversationStorage = opts.conversationStorage ?? db.createStorageAdapter("bot_conversations")
+
   let convoTransformer: MiddlewareFn = waitForLocales
 
   if (opts.transformer) {
@@ -74,8 +78,11 @@ export function getBot(opts: BotOptions = {}) {
   bot.use(createConversation(whisperConvo))
   bot.use(createConversation(newQueueConvo))
   bot.use(createConversation(viewQueueConvo))
+  bot.use(createConversation(setTemplateConvo))
   bot.use(createConversation(logChannelConvo))
   bot.use(createConversation(importConvo))
+  bot.use(createConversation(appealConvo))
+  bot.use(createConversation(rejectAppealConvo))
 
   bot.use(waitForLocales)
 
@@ -100,6 +107,9 @@ export function getBot(opts: BotOptions = {}) {
   bot.use(adminFeature)
   bot.use(exportFeature)
   bot.use(importFeature)
+  bot.use(userinfoFeature)
+  bot.use(warningsFeature)
+  bot.use(appealFeature)
 
   // if (isMultipleLocales) {
   //   bot.use(languageFeature)

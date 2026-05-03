@@ -317,6 +317,31 @@ export async function markLowAlertSent(queueId: string): Promise<void> {
   }
 }
 
+export async function upsertQueueTemplate(
+  queueId: string,
+  params: { prefix: string | null; suffix: string | null; useCounter: boolean },
+): Promise<void> {
+  const conn = await pool.connect();
+  try {
+    await conn.queryObject({
+      text: `
+        INSERT INTO queue_templates (queue_id, prefix, suffix, use_counter)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (queue_id) DO UPDATE
+          SET prefix = EXCLUDED.prefix,
+              suffix = EXCLUDED.suffix,
+              use_counter = EXCLUDED.use_counter
+      `,
+      args: [queueId, params.prefix, params.suffix, params.useCounter],
+    });
+    logger.trace({ msg: "db.upsertQueueTemplate", queueId });
+  } catch (error) {
+    logger.error({ msg: "db.upsertQueueTemplate failed", queueId, error });
+  } finally {
+    conn.release();
+  }
+}
+
 export async function getQueueTemplate(queueId: string): Promise<QueueTemplate | null> {
   const conn = await pool.connect();
   try {
@@ -328,6 +353,34 @@ export async function getQueueTemplate(queueId: string): Promise<QueueTemplate |
   } catch (error) {
     logger.error({ msg: "db.getQueueTemplate failed", queueId, error });
     return null;
+  } finally {
+    conn.release();
+  }
+}
+
+export async function getUnqueuedSubmissions(broadcastId: number): Promise<ApprovedSubmission[]> {
+  const conn = await pool.connect();
+  try {
+    const { rows } = await conn.queryObject<ApprovedSubmission>({
+      text: `
+        SELECT id, created_by, content, reviewed_at::text
+        FROM submissions
+        WHERE broadcast_id = $1
+          AND reviewed_by IS NOT NULL
+          AND is_rejected  = FALSE
+          AND posted_at   IS NULL
+          AND queue_id    IS NULL
+        ORDER BY reviewed_at ASC
+      `,
+      args: [broadcastId],
+    });
+    return await Promise.all(rows.map(async r => {
+      if (r.created_by != null) r.created_by = await decryptUserId(r.created_by as unknown as string);
+      return r;
+    }));
+  } catch (error) {
+    logger.error({ msg: "db.getUnqueuedSubmissions failed", broadcastId, error });
+    return [];
   } finally {
     conn.release();
   }

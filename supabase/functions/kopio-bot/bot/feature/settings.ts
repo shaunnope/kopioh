@@ -213,7 +213,7 @@ export async function showSettings(ctx: Context): Promise<void> {
 async function guardAdmin(ctx: Context): Promise<boolean> {
   const connection = ctx.session.connection;
   if (!connection) return false;
-  const ok = await db.isUserAdmin(ctx.from!.id, connection.id);
+  const ok = await db.getConnectionRole(ctx.from!.id, connection.id) === "admin";
   if (!ok) await ctx.answerCallbackQuery(ctx.t("settings.not-admin"));
   return ok;
 }
@@ -227,8 +227,8 @@ export async function logChannelConvo(
   const connection = await conversation.external(ctx => ctx.session.connection);
   if (!connection) return;
 
-  const isAdmin = await conversation.external(() => db.isUserAdmin(ctx0.from!.id, connection.id));
-  if (!isAdmin) {
+  const role = await conversation.external(() => db.getConnectionRole(ctx0.from!.id, connection.id));
+  if (role !== "admin") {
     await ctx0.reply(ctx0.t("settings.not-admin"));
     return;
   }
@@ -261,7 +261,7 @@ export async function logChannelConvo(
     const canPost = await conversation.external(async () => {
       try {
         const testMsg = await ctx0.api.sendMessage(channelId, ".");
-        await ctx0.api.deleteMessage(channelId, testMsg.message_id);
+        await ctx0.api.deleteMessage(channelId, testMsg.message_id).catch(_ => {});
         return true;
       } catch {
         return false;
@@ -560,7 +560,7 @@ feature.callbackQuery(/^cfg:logs:filter:(.+)$/, logHandle("callback-cfg-logs-fil
 
 feature.callbackQuery("cfg:close", logHandle("callback-cfg-close"), async (ctx) => {
   await ctx.answerCallbackQuery();
-  await ctx.deleteMessage();
+  await ctx.deleteMessage().catch(_ => {});
 });
 
 export { composer as settingsFeature };

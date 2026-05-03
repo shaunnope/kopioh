@@ -316,4 +316,124 @@ describe("queue feature", () => {
       }
     });
   });
+
+  describe("/viewqueue", () => {
+    async function makeQueueWithSubmissions(connectionId: string, texts: string[]) {
+      const queue = await db.createQueue({ connectionId, name: "daily", ...INTERVAL_PARAMS });
+      assertExists(queue);
+      for (const text of texts) {
+        const subId = await db.createSubmission(BROADCAST_ID, SUBMITTER_ID, { text });
+        assertExists(subId);
+        const claimed = await db.claimNextSubmission(BROADCAST_ID);
+        assertExists(claimed);
+        await db.approveSubmission(claimed.id, MOD_ID);
+        await db.assignSubmissionToQueue(subId, queue.id);
+      }
+      return queue;
+    }
+
+    it("shows unqueued submissions when no queue name is given", async () => {
+      await setupModerator();
+      await activateConnection();
+      testBot.clearCalls();
+
+      // No submissions → immediately done (no unqueued submissions exist)
+      await testBot.handleUpdate(privateCommand({ userId: MOD_ID, command: "viewqueue" }));
+
+      const sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "{queue.view-done}"));
+    });
+
+    it("replies not-found for an unknown queue name", async () => {
+      await setupModerator();
+      await activateConnection();
+      testBot.clearCalls();
+
+      await testBot.handleUpdate(privateCommand({ userId: MOD_ID, command: "viewqueue", payload: "nonexistent" }));
+
+      const sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "{queue.not-found}"));
+    });
+
+    it("shows done immediately when the queue is empty", async () => {
+      const connection = await setupModerator();
+      await db.createQueue({ connectionId: connection.id, name: "daily", ...INTERVAL_PARAMS });
+      await activateConnection();
+      testBot.clearCalls();
+
+      await testBot.handleUpdate(privateCommand({ userId: MOD_ID, command: "viewqueue", payload: "daily" }));
+
+      const sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "{queue.view-done}"));
+    });
+
+    it("skip advances through submissions in FIFO order", async () => {
+      const connection = await setupModerator();
+      await makeQueueWithSubmissions(connection.id, ["alpha", "beta", "gamma"]);
+      await activateConnection();
+      testBot.clearCalls();
+
+      // Enter — first submission shown
+      await testBot.handleUpdate(privateCommand({ userId: MOD_ID, command: "viewqueue", payload: "daily" }));
+      let sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "alpha"));
+      testBot.clearCalls();
+
+      // Skip → second submission shown (regression: was always showing first)
+      await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "queue:skip" }));
+      sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "beta"));
+      testBot.clearCalls();
+
+      // Skip → third submission shown
+      await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "queue:skip" }));
+      sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "gamma"));
+      testBot.clearCalls();
+
+      // Skip → done
+      await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "queue:skip" }));
+      sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "{queue.view-done}"));
+    });
+
+    it("exit ends the conversation without showing a done message", async () => {
+      const connection = await setupModerator();
+      await makeQueueWithSubmissions(connection.id, ["to review"]);
+      await activateConnection();
+
+      await testBot.handleUpdate(privateCommand({ userId: MOD_ID, command: "viewqueue", payload: "daily" }));
+      testBot.clearCalls();
+
+      await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "queue:exit" }));
+
+      const sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertEquals(sends.find((s) => (s.payload as { text: string }).text === "{queue.view-done}"), undefined);
+    });
+
+    it("edit saves and advances offset to the next submission", async () => {
+      const connection = await setupModerator();
+      await makeQueueWithSubmissions(connection.id, ["first", "second"]);
+      await activateConnection();
+      testBot.clearCalls();
+
+      // Enter — first submission shown
+      await testBot.handleUpdate(privateCommand({ userId: MOD_ID, command: "viewqueue", payload: "daily" }));
+      let sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "first"));
+      testBot.clearCalls();
+
+      // Click edit
+      await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "queue:edit" }));
+      testBot.clearCalls();
+
+      // Send replacement text
+      await testBot.handleUpdate(privateMessage({ userId: MOD_ID, text: "first edited" }));
+
+      // After edit: edit-saved reply and second submission shown
+      sends = testBot.calls.filter((c) => c.method === "sendMessage");
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "{queue.edit-saved}"));
+      assertExists(sends.find((s) => (s.payload as { text: string }).text === "{queue.view-item}"));
+    });
+  });
 });

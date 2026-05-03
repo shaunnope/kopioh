@@ -1,6 +1,7 @@
 import { Api } from "grammy";
 import type { LogEventType } from "../database/config.ts";
 import { FormattedString } from "grammy_parse_mode";
+import { logger } from "../logger.ts";
 
 export type LogEvent =
   | { type: "submission.new"; id: string; contentType: string; }
@@ -141,5 +142,7 @@ export async function log(
   try {
     const log = formatLog(event)
     await api.sendMessage(logsId, log.text, { entities: log.entities });
-  } catch { /* swallow */ }
+  } catch (e) { 
+      logger.error(`Error emitting connection log: ${e}`)
+   }
 }

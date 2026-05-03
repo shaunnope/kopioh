@@ -15,7 +15,12 @@ export async function getDefaultConnection(): Promise<{ id: string; broadcastId:
       args: [],
     });
     if (!rows[0]) return null;
-    return { id: rows[0].id, broadcastId: rows[0].broadcast_id, submitId: rows[0].submit_id, logsId: rows[0].logs_id ?? null };
+    return {
+      id: rows[0].id,
+      broadcastId: Number(rows[0].broadcast_id),
+      submitId: Number(rows[0].submit_id),
+      logsId: rows[0].logs_id != null ? Number(rows[0].logs_id) : null,
+    };
   } catch (error) {
     logger.error({ msg: "db.getDefaultConnection failed", error });
     return null;

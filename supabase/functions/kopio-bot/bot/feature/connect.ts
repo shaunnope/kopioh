@@ -9,6 +9,7 @@ import { Context, TryDeleteMessage } from "../context.ts";
 import { logHandle } from "../helper/logging.ts";
 import db from "../../database/index.ts";
 import { log, userName } from "../log.ts";
+import { handleGroupStart } from "./welcome.ts";
 
 const composer = new Composer<Context>()
 
@@ -33,7 +34,11 @@ async function validateUser(userId: number, ctx: Context, action: "connect" | "d
 
   const member = await ctx.getChatMember(userId);
   if (member.status !== "creator") {
-    await ctx.reply(ctx.t("connect.not-admin"));
+    if (action === "connect") {
+      await handleGroupStart(ctx);
+    } else {
+      await ctx.reply(ctx.t("connect.not-admin"));
+    }
     return false;
   }
 
@@ -223,7 +228,7 @@ groupFeature.command(
       return;
     }
 
-    if (!await db.isUserAdmin(issuerId, connection.id)) {
+    if (await db.getConnectionRole(issuerId, connection.id) !== "admin") {
       await ctx.reply(ctx.t("connect.not-authorized"));
       return;
     }
@@ -239,7 +244,7 @@ groupFeature.command(
       return;
     }
 
-    if (await db.isUserAdmin(target.id, connection.id)) {
+    if (await db.getConnectionRole(target.id, connection.id) === "admin") {
       await ctx.reply(ctx.t("connect.mod-is-admin", { name: target.name }));
       return;
     }
@@ -274,7 +279,7 @@ groupFeature.command(
       return;
     }
 
-    if (!await db.isUserAdmin(issuerId, connection.id)) {
+    if (await db.getConnectionRole(issuerId, connection.id) !== "admin") {
       await ctx.reply(ctx.t("connect.not-authorized"));
       return;
     }
@@ -290,7 +295,7 @@ groupFeature.command(
       return;
     }
 
-    if (await db.isUserAdmin(target.id, connection.id)) {
+    if (await db.getConnectionRole(target.id, connection.id) === "admin") {
       await ctx.reply(ctx.t("connect.mod-is-admin", { name: target.name }));
       return;
     }
@@ -382,8 +387,8 @@ channelFeature.on(
     await db.assignConnectionRole(initiatorId, connectionId, "admin");
 
     await Promise.all([
-      ctx.deleteMessage(),
-      ctx.api.deleteMessage(submitId, originalMsgId),
+      ctx.deleteMessage().catch(_ => {}),
+      ctx.api.deleteMessage(submitId, originalMsgId).catch(_ => {}),
       ctx.api.sendMessage(submitId, ctx.t("connect.success")),
     ]);
     // logs_id is always null for a brand-new connection; kept for completeness

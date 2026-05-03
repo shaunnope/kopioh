@@ -19,9 +19,8 @@ export async function submitConvo(
   conversation: Conversation,
   ctx0: ConversationContext,
 ) {
-  const maybeConnection = await conversation.external((ctx) => ctx.session.connection);
-  if (!isConnected(ctx0, maybeConnection)) return;
-  const connection = maybeConnection!
+  const connection = await conversation.external((ctx) => ctx.session.connection);
+  if (!isConnected(ctx0, connection) || !connection) return;
   
   const userId = ctx0.from!.id;
   const isBanned = await conversation.external(() => db.isUserBanned(userId, connection.broadcastId));

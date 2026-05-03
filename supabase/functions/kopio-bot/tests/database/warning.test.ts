@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach, afterAll } from "@std/testing/bdd";
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertNotEquals } from "@std/assert";
 import db from "../../database/index.ts";
-import { WARN_THRESHOLD_TEMP, WARN_THRESHOLD_PERM, TEMP_BAN_DAYS } from "../../database/warning.ts";
+import { WARN_THRESHOLD_TEMP, TEMP_BAN_DAYS } from "../../database/warning.ts";
 
 const SUBMIT_ID    = -9_888_040;
 const BROADCAST_ID = -9_888_041;
@@ -58,33 +58,31 @@ describe("db warnings", () => {
       assertEquals(await db.isUserBanned(USER_ID, BROADCAST_ID), true);
     });
 
-    it("returns true after a permanent ban is issued", async () => {
-      for (let i = 0; i < WARN_THRESHOLD_PERM; i++) {
+    it("returns false and clears warnings when an expired temporary ban is found", async () => {
+      for (let i = 0; i < WARN_THRESHOLD_TEMP; i++) {
         await db.issueWarning(USER_ID, BROADCAST_ID, null);
       }
-      assertEquals(await db.isUserBanned(USER_ID, BROADCAST_ID), true);
-    });
-
-    it("returns false for an expired temporary ban", async () => {
       const conn = await db.pool.connect();
       try {
         await conn.queryObject({
-          text: `INSERT INTO bans (user_id, broadcast_id, expires_at) VALUES ($1, $2, NOW() - INTERVAL '1 second')`,
+          text: `UPDATE bans SET expires_at = NOW() - INTERVAL '1 second' WHERE user_id = $1 AND broadcast_id = $2`,
           args: [USER_ID, BROADCAST_ID],
         });
       } finally {
         conn.release();
       }
       assertEquals(await db.isUserBanned(USER_ID, BROADCAST_ID), false);
+      assertEquals(await db.getUserWarningCount(USER_ID, BROADCAST_ID), 0);
     });
   });
 
   describe("issueWarning", () => {
-    it("returns incremented count and no ban below threshold", async () => {
+    it("returns a warningId, incremented count, and no ban below threshold", async () => {
       const result = await db.issueWarning(USER_ID, BROADCAST_ID, null);
       assertEquals(result.count, 1);
       assertEquals(result.banned, false);
       assertEquals(result.permanent, false);
+      assertNotEquals(result.warningId, "");
     });
 
     it("issues a temporary ban at WARN_THRESHOLD_TEMP", async () => {
@@ -100,15 +98,15 @@ describe("db warnings", () => {
       assertEquals(daysUntilExpiry > TEMP_BAN_DAYS - 1, true);
     });
 
-    it("upgrades to a permanent ban at WARN_THRESHOLD_PERM", async () => {
-      for (let i = 0; i < WARN_THRESHOLD_PERM - 1; i++) {
+    it("keeps all warnings on temp ban", async () => {
+      for (let i = 0; i < WARN_THRESHOLD_TEMP - 1; i++) {
         await db.issueWarning(USER_ID, BROADCAST_ID, null);
       }
-      const result = await db.issueWarning(USER_ID, BROADCAST_ID, null);
-      assertEquals(result.count, WARN_THRESHOLD_PERM);
+      const result = await db.issueWarning(USER_ID, BROADCAST_ID, null, "trigger");
       assertEquals(result.banned, true);
-      assertEquals(result.permanent, true);
-      assertEquals(result.expiresAt, null);
+
+      const remaining = await db.getUserWarningCount(USER_ID, BROADCAST_ID);
+      assertEquals(remaining, WARN_THRESHOLD_TEMP);
     });
 
     it("stores the reason when provided", async () => {
@@ -140,7 +138,7 @@ describe("db warnings", () => {
     });
 
     it("issues temp ban at custom threshold", async () => {
-      const thresholds = { warnThresholdTemp: 2, warnThresholdPerm: 4, tempBanDays: 3 };
+      const thresholds = { warnThresholdTemp: 2, tempBanDays: 3 };
       await db.issueWarning(USER_ID, BROADCAST_ID, null, null, thresholds);
       const result = await db.issueWarning(USER_ID, BROADCAST_ID, null, null, thresholds);
       assertEquals(result.count, 2);
@@ -149,17 +147,6 @@ describe("db warnings", () => {
       assertExists(result.expiresAt);
       const daysUntilExpiry = (result.expiresAt!.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
       assertEquals(daysUntilExpiry > 2, true);
-    });
-
-    it("issues perm ban at custom threshold", async () => {
-      const thresholds = { warnThresholdTemp: 2, warnThresholdPerm: 4, tempBanDays: 3 };
-      for (let i = 0; i < 3; i++) {
-        await db.issueWarning(USER_ID, BROADCAST_ID, null, null, thresholds);
-      }
-      const result = await db.issueWarning(USER_ID, BROADCAST_ID, null, null, thresholds);
-      assertEquals(result.count, 4);
-      assertEquals(result.banned, true);
-      assertEquals(result.permanent, true);
     });
   });
 
@@ -176,15 +163,6 @@ describe("db warnings", () => {
       assertExists(status);
       assertExists(status!.expiresAt);
     });
-
-    it("returns expiresAt as null for a permanent ban", async () => {
-      for (let i = 0; i < WARN_THRESHOLD_PERM; i++) {
-        await db.issueWarning(USER_ID, BROADCAST_ID, null);
-      }
-      const status = await db.getBanStatus(USER_ID, BROADCAST_ID);
-      assertExists(status);
-      assertEquals(status!.expiresAt, null);
-    });
   });
 
   describe("liftBan", () => {
@@ -192,7 +170,7 @@ describe("db warnings", () => {
       assertEquals(await db.liftBan(USER_ID, BROADCAST_ID), false);
     });
 
-    it("removes the ban and returns true", async () => {
+    it("removes the ban, clears warnings, and returns true", async () => {
       for (let i = 0; i < WARN_THRESHOLD_TEMP; i++) {
         await db.issueWarning(USER_ID, BROADCAST_ID, null);
       }
@@ -201,6 +179,7 @@ describe("db warnings", () => {
       const lifted = await db.liftBan(USER_ID, BROADCAST_ID);
       assertEquals(lifted, true);
       assertEquals(await db.isUserBanned(USER_ID, BROADCAST_ID), false);
+      assertEquals(await db.getUserWarningCount(USER_ID, BROADCAST_ID), 0);
     });
   });
 
@@ -221,9 +200,8 @@ describe("db warnings", () => {
     it("removes all warnings when count is omitted", async () => {
       await db.issueWarning(USER_ID, BROADCAST_ID, null);
       await db.issueWarning(USER_ID, BROADCAST_ID, null);
-      await db.issueWarning(USER_ID, BROADCAST_ID, null);
       const removed = await db.removeWarnings(USER_ID, BROADCAST_ID);
-      assertEquals(removed, 3);
+      assertEquals(removed, 2);
       assertEquals(await db.getUserWarningCount(USER_ID, BROADCAST_ID), 0);
     });
 
@@ -242,6 +220,98 @@ describe("db warnings", () => {
       } finally {
         conn.release();
       }
+    });
+  });
+
+  describe("appeals", () => {
+    async function issueOneWarning(reason?: string) {
+      return db.issueWarning(USER_ID, BROADCAST_ID, null, reason ?? null);
+    }
+
+    it("createAppeal returns the warningId for a valid warning belonging to the user", async () => {
+      const { warningId } = await issueOneWarning("bad post");
+      const appealId = await db.createAppeal(warningId, USER_ID, "it wasn't me");
+      assertEquals(appealId, warningId);
+    });
+
+    it("createAppeal returns null for a warning that doesn't belong to the user", async () => {
+      const { warningId } = await issueOneWarning();
+      const appealId = await db.createAppeal(warningId, USER_ID + 1, "fraud");
+      assertEquals(appealId, null);
+    });
+
+    it("createAppeal returns null for a duplicate appeal on the same warning", async () => {
+      const { warningId } = await issueOneWarning();
+      await db.createAppeal(warningId, USER_ID, "first appeal");
+      const duplicate = await db.createAppeal(warningId, USER_ID, "second attempt");
+      assertEquals(duplicate, null);
+    });
+
+    it("getAppeal returns the stored appeal with warning reason", async () => {
+      const { warningId } = await issueOneWarning("inappropriate");
+      await db.createAppeal(warningId, USER_ID, "not guilty");
+
+      const appeal = await db.getAppeal(warningId);
+      assertExists(appeal);
+      assertEquals(appeal!.userId, USER_ID);
+      assertEquals(appeal!.broadcastId, BROADCAST_ID);
+      assertEquals(appeal!.reason, "not guilty");
+      assertEquals(appeal!.warningReason, "inappropriate");
+      assertEquals(appeal!.status, "pending");
+      assertEquals(appeal!.rejectionReason, null);
+    });
+
+    it("getAppeal returns null for an unknown id", async () => {
+      const appeal = await db.getAppeal("00000000-0000-0000-0000-000000000000");
+      assertEquals(appeal, null);
+    });
+
+    it("liftAppeal removes all warnings, lifts the ban, and returns user info", async () => {
+      for (let i = 0; i < WARN_THRESHOLD_TEMP - 1; i++) {
+        await db.issueWarning(USER_ID, BROADCAST_ID, null);
+      }
+      const { warningId } = await issueOneWarning("final");
+      assertEquals(await db.isUserBanned(USER_ID, BROADCAST_ID), true);
+
+      await db.createAppeal(warningId, USER_ID, "unfair");
+
+      const result = await db.liftAppeal(warningId);
+      assertExists(result);
+      assertEquals(result!.userId, USER_ID);
+
+      assertEquals(await db.getUserWarningCount(USER_ID, BROADCAST_ID), 0);
+      assertEquals(await db.isUserBanned(USER_ID, BROADCAST_ID), false);
+      assertEquals(await db.getAppeal(warningId), null);
+    });
+
+    it("liftAppeal returns null for a non-pending appeal", async () => {
+      const { warningId } = await issueOneWarning();
+      await db.createAppeal(warningId, USER_ID, "reason");
+      await db.liftAppeal(warningId);
+      assertEquals(await db.liftAppeal(warningId), null);
+    });
+
+    it("rejectAppeal updates status and stores rejection reason", async () => {
+      const { warningId } = await issueOneWarning();
+      await db.createAppeal(warningId, USER_ID, "my reason");
+
+      const result = await db.rejectAppeal(warningId, "policy violation");
+      assertExists(result);
+      assertEquals(result!.userId, USER_ID);
+
+      const appeal = await db.getAppeal(warningId);
+      assertExists(appeal);
+      assertEquals(appeal!.status, "rejected");
+      assertEquals(appeal!.rejectionReason, "policy violation");
+
+      assertEquals(await db.getUserWarningCount(USER_ID, BROADCAST_ID), 1);
+    });
+
+    it("rejectAppeal returns null for a non-pending appeal", async () => {
+      const { warningId } = await issueOneWarning();
+      await db.createAppeal(warningId, USER_ID, "reason");
+      await db.rejectAppeal(warningId, "no");
+      assertEquals(await db.rejectAppeal(warningId, "again"), null);
     });
   });
 });

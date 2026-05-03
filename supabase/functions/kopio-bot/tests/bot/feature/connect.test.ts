@@ -1,8 +1,10 @@
 import { describe, it, beforeEach, afterEach, afterAll } from "@std/testing/bdd";
+import { FakeTime } from "@std/testing/time";
 import { assertEquals, assertExists } from "@std/assert";
 import db from "../../../database/index.ts";
 import { createTestBot, BOT_ID } from "../../helpers/bot.ts";
 import { groupCommand, channelPostForwarded, channelPost } from "../../helpers/updates.ts";
+import { deleteDelayMs } from "../../../bot/feature/welcome.ts";
 
 // Stable test IDs — unlikely to collide with real data
 const SUBMIT_ID = -9_888_001;
@@ -23,13 +25,33 @@ describe("connect feature", () => {
   afterAll(() => db.pool.end());
 
   describe("/connect command", () => {
-    it("rejects non-creator", async () => {
+    it("shows not-connected-prompt to non-creator when group is not connected", async () => {
       testBot.overrides.memberStatus = "member";
       await testBot.handleUpdate(groupCommand({ chatId: SUBMIT_ID, userId: USER_ID, command: "connect" }));
 
       const send = testBot.calls.find(c => c.method === "sendMessage");
       assertExists(send);
-      assertEquals((send.payload as { text: string }).text, "{connect.not-admin}");
+      assertEquals((send.payload as { text: string }).text, "{welcome.not-connected-prompt}");
+      assertEquals((send.payload as { disable_notification: boolean }).disable_notification, true);
+    });
+
+    it("shows group start deep-link to non-creator when group is already connected", async () => {
+      await db.createConnection(BROADCAST_ID, SUBMIT_ID);
+      testBot.clearCalls();
+      testBot.overrides.memberStatus = "member";
+      using time = new FakeTime();
+
+      await testBot.handleUpdate(groupCommand({ chatId: SUBMIT_ID, userId: USER_ID, command: "connect" }));
+
+      const send = testBot.calls.find(c => c.method === "sendMessage");
+      assertExists(send);
+      assertEquals((send.payload as { text: string }).text, "{welcome.help}");
+      assertEquals((send.payload as { disable_notification: boolean }).disable_notification, true);
+      // Command message should be deleted
+      const del = testBot.calls.find(c => c.method === "deleteMessage");
+      assertExists(del);
+
+      await time.tickAsync(deleteDelayMs);
     });
 
     it("sends payload message and edits with real message_id", async () => {

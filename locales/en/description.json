@@ -1,4 +1,4 @@
 {
-    "description": "Power up engagement in your Telegram community by collating and posting anonymised member posts to a channel.\nMembers can submit text, photos, videos, polls, and more! Submissions enter a moderation queue where admins can approve or reject content before publishing.\nKeep your channel curated without sacrificing community voice.",
+    "description": "Power up engagement in your Telegram community by collating and posting anonymised member posts to a channel.\nMembers can submit text, photos, videos, polls, and more! Submissions enter a moderation queue where admins can approve or reject content before publishing.\n\nKeep your channel curated without sacrificing community voice.",
     "short_description": "Post anonymised member-submitted content to a channel via a moderation queue."
 }

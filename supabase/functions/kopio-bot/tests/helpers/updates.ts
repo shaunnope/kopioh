@@ -105,6 +105,52 @@ export function privateMessage(opts: {
   };
 }
 
+export function forwardedUserMessage(opts: {
+  userId: number;
+  forwardedFromId: number;
+  forwardedFromName?: string;
+  messageId?: number;
+}): Update {
+  const { userId, forwardedFromId, forwardedFromName = "Forwarded", messageId = nextId() } = opts;
+  return {
+    update_id: nextId(),
+    message: {
+      message_id: messageId,
+      date: Math.floor(Date.now() / 1000),
+      chat: { id: userId, type: "private", first_name: "Tester" },
+      from: { id: userId, is_bot: false, first_name: "Tester" },
+      text: "forwarded",
+      forward_origin: {
+        type: "user",
+        date: Math.floor(Date.now() / 1000),
+        sender_user: { id: forwardedFromId, is_bot: false, first_name: forwardedFromName },
+      },
+    },
+  };
+}
+
+export function forwardedHiddenMessage(opts: {
+  userId: number;
+  messageId?: number;
+}): Update {
+  const { userId, messageId = nextId() } = opts;
+  return {
+    update_id: nextId(),
+    message: {
+      message_id: messageId,
+      date: Math.floor(Date.now() / 1000),
+      chat: { id: userId, type: "private", first_name: "Tester" },
+      from: { id: userId, is_bot: false, first_name: "Tester" },
+      text: "forwarded",
+      forward_origin: {
+        type: "hidden_user",
+        date: Math.floor(Date.now() / 1000),
+        sender_user_name: "Anonymous",
+      },
+    },
+  };
+}
+
 export function callbackQuery(opts: {
   userId: number;
   chatId: number;

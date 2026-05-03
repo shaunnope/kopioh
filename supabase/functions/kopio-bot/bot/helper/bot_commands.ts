@@ -1,6 +1,8 @@
 import type { BotCommand } from "grammy/types"
 import i18n from "../i18n.ts"
 import { logger } from "../../logger.ts";
+import { TranslateFunction } from "grammy_i18n";
+import { FormattedString } from "grammy_parse_mode";
 
 export const DEFAULT_LANGUAGE_CODE = "en"
 
@@ -42,6 +44,30 @@ const ALL_COMMANDS = new Map<string, BotCommand>(
       command: "ping",
       description: "commands.ping",
     },
+    connect: {
+      command: "connect",
+      description: "commands.connect",
+    },
+    disconnect: {
+      command: "disconnect",
+      description: "commands.disconnect",
+    },
+    mod: {
+      command: "mod",
+      description: "commands.mod",
+    },
+    unmod: {
+      command: "unmod",
+      description: "commands.unmod",
+    },
+    resetroles: {
+      command: "resetroles",
+      description: "commands.resetroles",
+    },
+    settemplate: {
+      command: "settemplate",
+      description: "commands.settemplate",
+    },
   }),
 )
 
@@ -72,11 +98,24 @@ export function getPrivateChatCommands(localeCode: string): BotCommand[] {
 }
 
 export function getPrivateChatAdminCommands(localeCode: string): BotCommand[] {
-  return [...getPrivateChatCommands(localeCode), getCommand("setcommands", localeCode)]
+  return [...getPrivateChatCommands(localeCode), getCommand("settemplate", localeCode), getCommand("setcommands", localeCode)]
 }
 
 export function getGroupChatCommands(localeCode: string): BotCommand[] {
-  return []
+  return [
+    getCommand("start", localeCode),
+    getCommand("help", localeCode),
+  ]
+}
+
+export function getGroupChatAdminCommands(localeCode: string): BotCommand[] {
+  return [
+    getCommand("connect", localeCode),
+    getCommand("disconnect", localeCode),
+    getCommand("mod", localeCode),
+    getCommand("unmod", localeCode),
+    getCommand("resetroles", localeCode),
+  ]
 }
 
 export function getLanguageCommand(localeCode: string): BotCommand {
@@ -89,4 +128,21 @@ export function getCommandEntries(...commands: BotCommand[]) {
 
 export function getPrivateChatCommandEntries(localeCode: string = DEFAULT_LANGUAGE_CODE) {
   return getCommandEntries(...getPrivateChatCommands(localeCode))
+}
+
+
+export function formatCommandUsage(t: TranslateFunction, command: string, required?: string[], optional?: string[]) {
+  let usage = FormattedString.code(`/${command}`)
+  required?.forEach(req => {
+    usage = usage.code(" <").code(t(`command-${command}.arg-${req}`)).code(">")
+  });
+  optional?.forEach(opt => {
+    usage = usage.code(" [").code(t(`command-${command}.arg-${opt}`)).code("]")
+  })
+
+  return FormattedString.b(`${t("command-help.usage")}: `).concat(usage)
+}
+
+export function formatCommandUsageV2(t: TranslateFunction, command: string) {
+  return FormattedString.b(`${t("command-help.usage")}: `).code(t(`command-${command}.usage`))
 }

@@ -15,3 +15,32 @@ warn =
   .remove-none = ℹ️ This user has no warnings to remove.
   .unwarn-invalid-id = ⚠️ Usage: /unwarn <user_id>
   .clearwarns-invalid-id = ⚠️ Usage: /clearwarns <user_id>
+
+warn-appeal = 📣 Appeal
+  .prompt = Describe why you believe this warning was issued in error:
+  .sent = ✅ Your appeal has been submitted. You'll be notified of the outcome.
+  .already = ℹ️ You've already submitted an appeal for this warning.
+  .notify-lifted = ✅ Your appeal was accepted. The warning has been removed.
+  .notify-rejected = ❌ Your appeal was rejected. Reason: { $reason }
+
+warn-appeal-info = 📣 Appeal from
+  .warning-label = Warning:
+  .appeal-label = Appeal:
+  .lift-button = ✅ Lift Warning
+  .reject-button = ❌ Reject Appeal
+  .lifted = ✅ Warning lifted. User has been notified.
+  .reject-prompt = Enter a reason for rejecting this appeal:
+  .reject-success = ✅ Appeal rejected. User has been notified.
+  .expired = ℹ️ This appeal is no longer active.
+
+warnings = ⚠️ Warnings
+  .none = No warnings.
+  .count = { $count } warning(s)
+  .appeal-pending = [appeal: pending]
+  .appeal-lifted = [appeal: lifted]
+  .appeal-rejected = [appeal: rejected]
+  .appeal-rejected-reason = [appeal: rejected — { $reason }]
+  .not-admin = You must be a connection admin to look up other users' warnings.
+
+command-warnings =
+  .usage = /warnings <user_id>

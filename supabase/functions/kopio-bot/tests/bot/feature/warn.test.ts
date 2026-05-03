@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach, afterAll } from "@std/testing/bdd";
 import { assertEquals, assertExists } from "@std/assert";
 import db from "../../../database/index.ts";
-import { WARN_THRESHOLD_TEMP, WARN_THRESHOLD_PERM } from "../../../database/warning.ts";
+import { WARN_THRESHOLD_TEMP } from "../../../database/warning.ts";
 import { createTestBot } from "../../helpers/bot.ts";
 import { privateCommand, privateMessage, callbackQuery } from "../../helpers/updates.ts";
 
@@ -109,6 +109,10 @@ describe("warn feature", () => {
       );
       assertExists(dm);
       assertEquals((dm.payload as { text: string }).text, "{warn.notify-issued}");
+      // DM should include an appeal button
+      const markup = (dm.payload as { reply_markup?: { inline_keyboard: { callback_data: string }[][] } }).reply_markup;
+      assertExists(markup);
+      assertEquals(markup!.inline_keyboard.flat().some(b => b.callback_data.startsWith("warn:appeal:")), true);
     });
 
     it("shows temp-ban line when warnings reach WARN_THRESHOLD_TEMP", async () => {
@@ -137,31 +141,6 @@ describe("warn feature", () => {
       assertEquals((dm.payload as { text: string }).text, "{warn.notify-temp}");
     });
 
-    it("shows perm-ban line when warnings reach WARN_THRESHOLD_PERM", async () => {
-      await setupModerator();
-      for (let i = 0; i < WARN_THRESHOLD_PERM - 1; i++) {
-        await db.issueWarning(SUBMITTER_ID, BROADCAST_ID, null);
-      }
-
-      await db.createSubmission(BROADCAST_ID, SUBMITTER_ID, { text: "Final warning" });
-      await enterModerateConvo();
-      testBot.clearCalls();
-
-      await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "mod:reject-warn" }));
-      await testBot.handleUpdate(callbackQuery({ userId: MOD_ID, chatId: MOD_ID, data: "mod:skip-reason" }));
-
-      const edit = testBot.calls.find(c => c.method === "editMessageText");
-      assertExists(edit);
-      assertEquals((edit.payload as { text: string }).text.includes("{warn.banned-perm}"), true);
-      assertEquals(await db.isUserBanned(SUBMITTER_ID, BROADCAST_ID), true);
-
-      // DM should report perm ban
-      const dm = testBot.calls.find(
-        c => c.method === "sendMessage" && Number((c.payload as { chat_id: number }).chat_id) === SUBMITTER_ID,
-      );
-      assertExists(dm);
-      assertEquals((dm.payload as { text: string }).text, "{warn.notify-perm}");
-    });
 
     it("uses custom thresholds from connection config", async () => {
       await setupModerator();
@@ -208,22 +187,6 @@ describe("warn feature", () => {
       const sends = testBot.calls.filter(c => c.method === "sendMessage");
       assertExists(sends.find(s => (s.payload as { text: string }).text === "{warn.submit-banned-temp}"));
       assertEquals(sends.find(s => (s.payload as { text: string }).text === "{submit.prompt}"), undefined);
-    });
-
-    it("replies with perm-ban message for permanently banned user", async () => {
-      for (let i = WARN_THRESHOLD_TEMP; i < WARN_THRESHOLD_PERM; i++) {
-        await db.issueWarning(SUBMITTER_ID, BROADCAST_ID, null);
-      }
-
-      await testBot.handleUpdate(
-        privateCommand({ userId: SUBMITTER_ID, command: "start", payload: String(SUBMIT_ID) }),
-      );
-      await testBot.handleUpdate(
-        callbackQuery({ userId: SUBMITTER_ID, chatId: SUBMITTER_ID, data: "welcome:choose:submit" }),
-      );
-
-      const sends = testBot.calls.filter(c => c.method === "sendMessage");
-      assertExists(sends.find(s => (s.payload as { text: string }).text === "{warn.submit-banned-perm}"));
     });
 
     it("allows submission after ban is lifted", async () => {

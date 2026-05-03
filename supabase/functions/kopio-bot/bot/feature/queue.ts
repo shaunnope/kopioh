@@ -6,6 +6,7 @@ import { awaitTextMessage, detectContentType } from "../helper/content_type.ts";
 import { requireModerator } from "./moderate.ts";
 import db from "../../database/index.ts";
 import { isConnected } from "../helper/connection.ts";
+import { buildUserInfoCard } from "./userinfo.ts";
 
 const composer = new Composer<Context>();
 const feature = composer.chatType("private");
@@ -101,7 +102,7 @@ feature.command("deletequeue", logHandle("command-deletequeue"), requireModerato
     return;
   }
 
-  const isAdmin = await db.isUserAdmin(ctx.from!.id, connection.id);
+  const isAdmin = await db.getConnectionRole(ctx.from!.id, connection.id) === "admin";
   if (!isAdmin) {
     await ctx.reply(ctx.t("queue.not-admin"));
     return;
@@ -123,6 +124,10 @@ feature.command("viewqueue", logHandle("command-viewqueue"), requireModerator, a
   await ctx.conversation.enter("viewQueueConvo");
 });
 
+feature.command("settemplate", logHandle("command-settemplate"), requireModerator, async (ctx) => {
+  await ctx.conversation.enter("setTemplateConvo");
+});
+
 export { composer as queueFeature };
 
 //--- Conversation: create a new queue ---//
@@ -132,8 +137,8 @@ export async function newQueueConvo(conversation: Conversation, ctx0: Conversati
   if (!isConnected(ctx0, maybeConnection)) return;
   const connection = maybeConnection!
 
-  const isAdmin = await conversation.external(() => db.isUserAdmin(ctx0.from!.id, connection.id));
-  if (!isAdmin) {
+  const role = await conversation.external(() => db.getConnectionRole(ctx0.from!.id, connection.id));
+  if (role !== "admin") {
     await ctx0.reply(ctx0.t("queue.not-admin"));
     return;
   }
@@ -318,44 +323,46 @@ export async function newQueueConvo(conversation: Conversation, ctx0: Conversati
 
 export async function viewQueueConvo(conversation: Conversation, ctx0: ConversationContext) {
   const connection = await conversation.external((ctx) => ctx.session.connection);
-  if (!isConnected(ctx0, connection)) return;
+  if (!isConnected(ctx0, connection) || !connection) return;
 
   const moderatorId = ctx0.from!.id;
-  const name = ((ctx0.match ?? "") as string).trim();
+  // ctx.match is unavailable in conversation context — extract from the raw message text instead
+  const name = await conversation.external((ctx) => (ctx.message?.text ?? "").replace(/^\/\S+/, "").trim());
 
-  if (!name) {
-    await ctx0.reply(ctx0.t("queue.viewqueue-usage"));
-    return;
-  }
-
-  const isMod = await conversation.external(() => db.isUserModerator(moderatorId, connection!.id));
-  if (!isMod) {
+  const modRole = await conversation.external(() => db.getConnectionRole(moderatorId, connection.id));
+  if (modRole === "user") {
     await ctx0.reply(ctx0.t("moderate.not-moderator"));
     return;
   }
 
-  const queues = await conversation.external(() => db.getQueuesForConnection(connection!.id));
-  const queue = queues.find((q) => q.name.toLowerCase() === name.toLowerCase());
-
-  if (!queue) {
-    await ctx0.reply(ctx0.t("queue.not-found"));
-    return;
+  let queueId: string | null = null;
+  if (name) {
+    const queues = await conversation.external(() => db.getQueuesForConnection(connection.id));
+    const queue = queues.find((q) => q.name.toLowerCase() === name.toLowerCase());
+    if (!queue) {
+      await ctx0.reply(ctx0.t("queue.not-found"));
+      return;
+    }
+    queueId = queue.id;
   }
 
-  const seen = new Set<string>();
+  let offset = 0;
 
   while (true) {
-    const all = await conversation.external(() => db.getQueueSubmissions(queue.id));
-    const remaining = all.filter((s) => !seen.has(s.id));
+    const all = await conversation.external(() =>
+      queueId !== null
+        ? db.getQueueSubmissions(queueId!)
+        : db.getUnqueuedSubmissions(connection.broadcastId)
+    );
 
-    if (remaining.length === 0) {
-      await ctx0.reply(ctx0.t("queue.view-done", { total: seen.size }));
+    if (offset >= all.length) {
+      await ctx0.reply(ctx0.t("queue.view-done", { total: offset }));
       return;
     }
 
-    const submission = remaining[0];
-    const position = seen.size + 1;
-    const total = seen.size + remaining.length;
+    const submission = all[offset];
+    const position = offset + 1;
+    const total = all.length;
 
     const contentMsg = await sendContent(ctx0.api, ctx0.chat!.id, submission.content);
 
@@ -363,9 +370,9 @@ export async function viewQueueConvo(conversation: Conversation, ctx0: Conversat
     const canEdit = contentType !== "sticker" && contentType !== "poll";
     const kb = new InlineKeyboard();
     if (canEdit) kb.text(ctx0.t("queue.edit-button"), "queue:edit");
-    kb.text(ctx0.t("queue.skip-button"), "queue:skip")
-      .row()
-      .text(ctx0.t("queue.exit-button"), "queue:exit");
+    kb.text(ctx0.t("queue.skip-button"), "queue:skip").row();
+    if (modRole === "admin") kb.text(ctx0.t("userinfo.button"), "queue:userinfo").row();
+    kb.text(ctx0.t("queue.exit-button"), "queue:exit");
 
     const infoMsg = await ctx0.reply(
       ctx0.t("queue.view-item", { position, total }),
@@ -373,14 +380,20 @@ export async function viewQueueConvo(conversation: Conversation, ctx0: Conversat
     );
 
     const cleanup = () => Promise.all([
-      ctx0.api.deleteMessage(contentMsg.chat.id, contentMsg.message_id).catch(() => {}),
-      ctx0.api.deleteMessage(infoMsg.chat.id, infoMsg.message_id).catch(() => {}),
+      ctx0.api.deleteMessage(contentMsg.chat.id, contentMsg.message_id),
+      ctx0.api.deleteMessage(infoMsg.chat.id, infoMsg.message_id),
     ]);
 
-    const pattern = canEdit ? /^queue:(edit|skip|exit)$/ : /^queue:(skip|exit)$/;
+    const pattern = canEdit ? /^queue:(edit|skip|exit|userinfo)$/ : /^queue:(skip|exit|userinfo)$/;
     const actionCtx = await conversation.waitForCallbackQuery(pattern);
     await actionCtx.answerCallbackQuery();
     const action = actionCtx.callbackQuery.data.split(":")[1];
+
+    if (action === "userinfo") {
+      const card = await conversation.external(() => buildUserInfoCard(submission.created_by, connection, ctx0));
+      await ctx0.reply(card.text, { entities: card.entities });
+      continue;
+    }
 
     if (action === "exit") {
       await cleanup();
@@ -389,7 +402,7 @@ export async function viewQueueConvo(conversation: Conversation, ctx0: Conversat
 
     if (action === "skip") {
       await cleanup();
-      seen.add(submission.id);
+      offset++;
       continue;
     }
 
@@ -420,6 +433,123 @@ export async function viewQueueConvo(conversation: Conversation, ctx0: Conversat
 
     await conversation.external(() => db.editAndApproveSubmission(submission.id, moderatorId, newContent));
     await ctx0.reply(ctx0.t("queue.edit-saved"));
-    seen.add(submission.id);
+    offset++;
   }
+}
+
+//--- Conversation: set/edit a queue template ---//
+
+export async function setTemplateConvo(conversation: Conversation, ctx0: ConversationContext) {
+  const connection = await conversation.external((ctx) => ctx.session.connection);
+  if (!isConnected(ctx0, connection) || !connection) return;
+
+  const name = await conversation.external((ctx) => (ctx.message?.text ?? "").replace(/^\/\S+/, "").trim());
+  if (!name) {
+    await ctx0.reply(ctx0.t("queue.settemplate-usage"));
+    return;
+  }
+
+  const queues = await conversation.external(() => db.getQueuesForConnection(connection.id));
+  const queue = queues.find((q) => q.name.toLowerCase() === name.toLowerCase());
+  if (!queue) {
+    await ctx0.reply(ctx0.t("queue.not-found"));
+    return;
+  }
+
+  const existing = await conversation.external(() => db.getQueueTemplate(queue.id));
+
+  const formatVal = (v: string | null) => v ?? ctx0.t("queue.template-none");
+  const headerLines = [
+    ctx0.t("queue.template-header", { name: queue.name }),
+    ctx0.t("queue.template-current-prefix", { value: formatVal(existing?.prefix ?? null) }),
+    ctx0.t("queue.template-current-suffix", { value: formatVal(existing?.suffix ?? null) }),
+    existing?.use_counter ? ctx0.t("queue.template-counter-on") : ctx0.t("queue.template-counter-off"),
+  ];
+  await ctx0.reply(headerLines.join("\n"));
+
+  const cancelKb = (extra: InlineKeyboard) =>
+    extra.row().text(ctx0.t("queue.template-cancel-button"), "settemplate:cancel");
+
+  // Step 1: Prefix
+  const prefixKb = cancelKb(
+    new InlineKeyboard()
+      .text(ctx0.t("queue.template-skip-button"), "settemplate:skip-prefix")
+      .text(ctx0.t("queue.template-clear-button"), "settemplate:clear-prefix"),
+  );
+  const prefixMsg = await ctx0.reply(ctx0.t("queue.template-prefix-prompt"), { reply_markup: prefixKb });
+  let prefix: string | null = existing?.prefix ?? null;
+  while (true) {
+    const next = await conversation.wait();
+    if (next.callbackQuery?.data === "settemplate:cancel") {
+      await next.answerCallbackQuery();
+      await ctx0.api.deleteMessage(prefixMsg.chat.id, prefixMsg.message_id).catch(() => {});
+      return;
+    }
+    if (next.callbackQuery?.data === "settemplate:skip-prefix") {
+      await next.answerCallbackQuery();
+      break;
+    }
+    if (next.callbackQuery?.data === "settemplate:clear-prefix") {
+      await next.answerCallbackQuery();
+      prefix = null;
+      break;
+    }
+    if (next.message?.text && !next.message.text.startsWith("/")) {
+      prefix = next.message.text.trim();
+      break;
+    }
+  }
+  await ctx0.api.deleteMessage(prefixMsg.chat.id, prefixMsg.message_id).catch(() => {});
+
+  // Step 2: Suffix
+  const suffixKb = cancelKb(
+    new InlineKeyboard()
+      .text(ctx0.t("queue.template-skip-button"), "settemplate:skip-suffix")
+      .text(ctx0.t("queue.template-clear-button"), "settemplate:clear-suffix"),
+  );
+  const suffixMsg = await ctx0.reply(ctx0.t("queue.template-suffix-prompt"), { reply_markup: suffixKb });
+  let suffix: string | null = existing?.suffix ?? null;
+  while (true) {
+    const next = await conversation.wait();
+    if (next.callbackQuery?.data === "settemplate:cancel") {
+      await next.answerCallbackQuery();
+      await ctx0.api.deleteMessage(suffixMsg.chat.id, suffixMsg.message_id).catch(() => {});
+      return;
+    }
+    if (next.callbackQuery?.data === "settemplate:skip-suffix") {
+      await next.answerCallbackQuery();
+      break;
+    }
+    if (next.callbackQuery?.data === "settemplate:clear-suffix") {
+      await next.answerCallbackQuery();
+      suffix = null;
+      break;
+    }
+    if (next.message?.text && !next.message.text.startsWith("/")) {
+      suffix = next.message.text.trim();
+      break;
+    }
+  }
+  await ctx0.api.deleteMessage(suffixMsg.chat.id, suffixMsg.message_id).catch(() => {});
+
+  // Step 3: Counter
+  const counterKb = cancelKb(
+    new InlineKeyboard()
+      .text(ctx0.t("queue.template-yes-button"), "settemplate:counter-yes")
+      .text(ctx0.t("queue.template-no-button"), "settemplate:counter-no"),
+  );
+  const counterMsg = await ctx0.reply(ctx0.t("queue.template-counter-prompt"), { reply_markup: counterKb });
+  let useCounter: boolean = existing?.use_counter ?? false;
+  while (true) {
+    const next = await conversation.waitForCallbackQuery(/^settemplate:(counter-yes|counter-no|cancel)$/);
+    await next.answerCallbackQuery();
+    await ctx0.api.deleteMessage(counterMsg.chat.id, counterMsg.message_id).catch(() => {});
+    const action = next.callbackQuery.data.split(":")[1];
+    if (action === "cancel") return;
+    useCounter = action === "counter-yes";
+    break;
+  }
+
+  await conversation.external(() => db.upsertQueueTemplate(queue.id, { prefix, suffix, useCounter }));
+  await ctx0.reply(ctx0.t("queue.template-saved"));
 }

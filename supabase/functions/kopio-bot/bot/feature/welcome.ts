@@ -1,10 +1,11 @@
-import { Composer, InlineKeyboard } from "grammy";
+import { Composer, InlineKeyboard, NextFunction } from "grammy";
 import { Context, TryDeleteMessage } from "../context.ts";
 import { logHandle } from "../helper/logging.ts";
 import db from "../../database/index.ts";
 import { getConnectionMeta, getConnection } from "../helper/admin.ts";
 import { showHelpMenu } from "./help.ts";
 import { showSettings } from "./settings.ts";
+import { ConnectionInfo } from "../session.ts";
 
 export const deleteDelayMs = 30_000
 const META_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -87,13 +88,12 @@ feature.command(
 
     const groupName = meta.title
 
-    const [isMod, isAdmin, userStats, modPendingCount] = await Promise.all([
-      db.isUserModerator(userId, connection.id),
-      db.isUserAdmin(userId, connection.id),
+    const [role, userStats, modPendingCount] = await Promise.all([
+      db.getConnectionRole(userId, connection.id),
       db.getUserSubmissionStats(userId),
       db.countPendingSubmissions(connection.broadcastId),
     ]);
-    const { text, keyboard } = buildWelcomeMenu(ctx, groupName, isMod, isAdmin, userStats, modPendingCount);
+    const { text, keyboard } = buildWelcomeMenu(ctx, groupName, role !== "user", role === "admin", userStats, modPendingCount);
     await ctx.reply(text, { reply_markup: keyboard });
   }
 )
@@ -141,14 +141,13 @@ feature.callbackQuery("welcome:dc:cancel", logHandle("callback-disconnect-cancel
   const connection = ctx.session.connection;
   if (!connection) return;
   const userId = ctx.from.id;
-  const [meta, isMod, isAdmin, userStats, modPendingCount] = await Promise.all([
+  const [meta, role, userStats, modPendingCount] = await Promise.all([
     getConnectionMeta(ctx.api, connection.id, connection.submitId),
-    db.isUserModerator(userId, connection.id),
-    db.isUserAdmin(userId, connection.id),
+    db.getConnectionRole(userId, connection.id),
     db.getUserSubmissionStats(userId),
     db.countPendingSubmissions(connection.broadcastId),
   ]);
-  const { text, keyboard } = buildWelcomeMenu(ctx, meta.title, isMod, isAdmin, userStats, modPendingCount);
+  const { text, keyboard } = buildWelcomeMenu(ctx, meta.title, role !== "user", role === "admin", userStats, modPendingCount);
   await ctx.editMessageText(text, { reply_markup: keyboard });
 });
 
@@ -162,39 +161,42 @@ feature.command(
   }
 )
 
+export async function handleGroupStart(ctx: Context, connection?: ConnectionInfo) {
+  const chatId = ctx.chat!.id;
+  const isConnected = !!(connection ?? await db.getConnectionBySubmitId(chatId));
+
+  if (!isConnected) {
+    await ctx.reply(ctx.t("welcome.not-connected-prompt"), { disable_notification: true });
+    return;
+  }
+
+  const startUrl = `https://t.me/${ctx.me.username}?start=${chatId}`;
+  const msg = await ctx.reply(ctx.t("welcome.help"), {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: ctx.t("welcome.help-button"), url: startUrl }
+      ]]
+    },
+    disable_notification: true
+  });
+
+  await TryDeleteMessage(ctx);
+
+  const deleteAfterDelay = new Promise<void>((resolve) => {
+    setTimeout(async () => {
+      try { await msg.delete(); } finally { resolve(); }
+    }, deleteDelayMs);
+  });
+
+  if (typeof EdgeRuntime !== "undefined") {
+    EdgeRuntime.waitUntil(deleteAfterDelay);
+  }
+}
+
 groupFeature.command(
   "start",
   logHandle("command-start"),
-  async (ctx) => {
-    const chatId = ctx.chat.id;
-    const isConnected = !!(await db.getConnectionBySubmitId(chatId));
-
-    if (!isConnected) {
-      await ctx.reply(ctx.t("welcome.not-connected-prompt"));
-      return;
-    }
-
-    const startUrl = `https://t.me/${ctx.me.username}?start=${chatId}`;
-    const msg = await ctx.reply(ctx.t("welcome.help"), {
-      reply_markup: {
-        inline_keyboard: [[
-          { text: ctx.t("welcome.help-button"), url: startUrl }
-        ]]
-      }
-    });
-
-    await TryDeleteMessage(ctx)
-
-    const deleteAfterDelay = new Promise<void>((resolve) => {
-      setTimeout(async () => {
-        try { await msg.delete(); } finally { resolve(); }
-      }, deleteDelayMs);
-    });
-
-    if (typeof EdgeRuntime !== "undefined") {
-      EdgeRuntime.waitUntil(deleteAfterDelay);
-    }
-  }
+  ctx => handleGroupStart(ctx),
 )
 
 export { composer as welcomeFeature }

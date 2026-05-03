@@ -9,6 +9,7 @@ import { awaitTextMessage, detectContentType } from "../helper/content_type.ts";
 import { type AuxActions, editPoll } from "./moderate.polls.ts";
 import { log, userName } from "../log.ts";
 import { isConnected } from "../helper/connection.ts";
+import { getUserInfoCardData, makeUserInfoCard, resolveDisplayName } from "./userinfo.ts";
 
 const composer = new Composer<Context>();
 const feature = composer.chatType("private");
@@ -16,7 +17,7 @@ const feature = composer.chatType("private");
 async function validateIsModerator(ctx: Context, connection: ConnectionInfo | null) {
   if (!isConnected(ctx, connection)) return;
 
-  const isMod = await db.isUserModerator(ctx.from!.id, connection!.id);
+  const isMod = await db.getConnectionRole(ctx.from!.id, connection!.id) !== "user";
   if (!isMod) {
     await ctx.reply(ctx.t("moderate.not-moderator"))
     return false
@@ -138,8 +139,8 @@ export async function moderateConvo(
   const moderatorId = ctx0.from!.id;
   const broadcastId = connection.broadcastId;
 
-  const isMod = await conversation.external(() => db.isUserModerator(moderatorId, connection.id));
-  if (!isMod) {
+  const role = await conversation.external(() => db.getConnectionRole(moderatorId, connection.id));
+  if (role === "user") {
     await ctx0.reply(ctx0.t("moderate.not-moderator"));
     return;
   }
@@ -152,11 +153,37 @@ export async function moderateConvo(
 
   await ctx0.reply(ctx0.t("moderate.pending_count", { count }));
 
+  const skipped: string[] = [];
+
+  /**
+   * Loop for action context. 
+   * If `mod:userinfo` is received, continue waiting for next callback query
+   **/ 
+  async function getContext(submission: PendingSubmission) {
+    while (true) {
+      const actionCtx = await conversation.waitForCallbackQuery(/^mod:(approve|reject|reject-warn|edit|skip|exit|userinfo)$/);
+      await actionCtx.answerCallbackQuery();
+      const action = actionCtx.callbackQuery.data.split(":")[1];
+
+      if (action === "userinfo") {
+        const displayName = await resolveDisplayName(ctx0, submission.created_by)
+        const info = conversation.external(() => getUserInfoCardData(submission.created_by, connection));
+        const card = await makeUserInfoCard(submission.created_by, displayName, info, ctx0.t)
+        await ctx0.reply(card.text, { entities: card.entities });
+        continue;
+      }
+      return { actionCtx, action }
+    }
+  }
+
   // moderation loop: repeat until no more pending submissions
   while (true) {
     const submission = await conversation.external(() => db.claimNextSubmission(broadcastId));
 
     if (!submission) {
+      if (skipped.length > 0) {
+        await conversation.external(() => Promise.all(skipped.map((id) => db.unclaimSubmission(id))));
+      }
       await ctx0.reply(ctx0.t("moderate.done"));
       return;
     }
@@ -178,10 +205,9 @@ export async function moderateConvo(
     if (contentType !== "sticker") {
       keyboard.text(ctx0.t("moderate.edit-button"), "mod:edit");
     }
-    keyboard
-      .text(ctx0.t("moderate.skip-button"), "mod:skip")
-      .row()
-      .text(ctx0.t("moderate.exit-button"), "mod:exit");
+    keyboard.text(ctx0.t("moderate.skip-button"), "mod:skip")
+    if (role === "admin") keyboard.text(ctx0.t("userinfo.button"), "mod:userinfo")
+    keyboard.row().text(ctx0.t("moderate.exit-button"), "mod:exit");
 
     const reviewMsg = await ctx0.reply(metaText, { reply_markup: keyboard });
 
@@ -194,11 +220,13 @@ export async function moderateConvo(
       clearReviewMarkup: () => ctx0.api.editMessageReplyMarkup(reviewMsg.chat.id, reviewMsg.message_id)
     }
 
-    const actionCtx = await conversation.waitForCallbackQuery(/^mod:(approve|reject|reject-warn|edit|skip|exit)$/);
-    await actionCtx.answerCallbackQuery();
-    const action = actionCtx.callbackQuery.data.split(":")[1];
+    const { actionCtx, action } = await getContext(submission)
+
     if (action === "exit") {
       await conversation.external(() => db.unclaimSubmission(submission.id));
+      if (skipped.length > 0) {
+        await conversation.external(() => Promise.all(skipped.map((id) => db.unclaimSubmission(id))));
+      }
       await Promise.all([cleanup.deleteContentMsg(), cleanup.appendToReviewMsg(ctx0.t("moderate.exited"))]);
       return;
     }
@@ -255,7 +283,6 @@ export async function moderateConvo(
           reason, 
           {
             warnThresholdTemp: cfg.warn_threshold_temp,
-            warnThresholdPerm: cfg.warn_threshold_perm,
             tempBanDays: cfg.temp_ban_days,
           }
         ));
@@ -265,22 +292,21 @@ export async function moderateConvo(
         const noReason = ctx0.t("warn.notify-no-reason");
         const displayReason = reason ?? noReason;
         const dateOpts: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" };
+        const appealKeyboard = result.warningId
+          ? new InlineKeyboard().text(ctx0.t("warn-appeal"), `warn:appeal:${result.warningId}`)
+          : undefined;
         if (result.banned) {
-          if (result.permanent) {
-            ctx0.api.sendMessage(submission.created_by, ctx0.t("warn.notify-perm", { count: result.count, reason: displayReason })).catch(() => {});
-          } else {
-            ctx0.api.sendMessage(submission.created_by, ctx0.t("warn.notify-temp", {
-              count: result.count,
-              date: result.expiresAt!.toLocaleDateString("en-GB", dateOpts),
-              reason: displayReason,
-            })).catch(() => {});
-          }
+          ctx0.api.sendMessage(submission.created_by, ctx0.t("warn.notify-temp", {
+            count: result.count,
+            date: result.expiresAt!.toLocaleDateString("en-GB", dateOpts),
+            reason: displayReason,
+          }), { reply_markup: appealKeyboard }).catch(() => {});
         } else {
           ctx0.api.sendMessage(submission.created_by, ctx0.t("warn.notify-issued", {
             count: result.count,
             threshold: cfg.warn_threshold_temp,
             reason: displayReason,
-          })).catch(() => {});
+          }), { reply_markup: appealKeyboard }).catch(() => {});
         }
 
         const warnLine = result.banned
@@ -303,8 +329,7 @@ export async function moderateConvo(
         continue;
       }
       case "skip":
-        // TODO: does not work yet. stuck on same submission
-        await conversation.external(() => db.unclaimSubmission(submission.id));
+        skipped.push(submission.id);
         await Promise.all([cleanup.deleteContentMsg(), cleanup.appendToReviewMsg(ctx0.t("moderate.skipped"))]);
         continue;
       case "edit":

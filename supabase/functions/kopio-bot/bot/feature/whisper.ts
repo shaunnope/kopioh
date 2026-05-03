@@ -163,8 +163,7 @@ feature.command("setwhisper", logHandle("command-setwhisper"), async (ctx) => {
   const connection = ctx.session.connection;
   if (!isConnected(ctx, connection) || !connection) return;
 
-  const isAdmin = await db.isUserAdmin(ctx.from.id, connection.id);
-  if (!isAdmin) {
+  if (await db.getConnectionRole(ctx.from.id, connection.id) !== "admin") {
     await ctx.reply(ctx.t("setwhisper.not-admin"));
     return;
   }

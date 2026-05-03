@@ -1,7 +1,23 @@
 [
-  { "command": "start",       "description": "Connect to a group and start submitting content" },
+  { "command": "start",       "description": "Connect to a group and start submitting" },
+  { "command": "submit",      "description": "Make submissions to your connected community" },
   { "command": "help",        "description": "Learn how to use the bot" },
   { "command": "ping",        "description": "Check if the bot is online and measure response time" },
   { "command": "disconnect",  "description": "Clear your current group connection" },
-  { "command": "getdata",     "description": "View your submission stats and manage your data" }
+  { "command": "getdata",     "description": "View your submission stats and manage your data" },
+  { "command": "review",      "description": "Start reviewing pending submissions" },
+  { "command": "post",        "description": "Post an approved submission to the channel" },
+  { "command": "newqueue",    "description": "Create a new posting queue" },
+  { "command": "queues",      "description": "List all posting queues" },
+  { "command": "deletequeue", "description": "Delete a posting queue" },
+  { "command": "viewqueue",   "description": "View and manage submissions in a queue" },
+  { "command": "settemplate", "description": "Set a prefix, suffix, or counter for a queue" },
+  { "command": "unwarn",      "description": "Remove the latest warning from a user" },
+  { "command": "clearwarns",  "description": "Clear all warnings for a user" },
+  { "command": "export",      "description": "Export all submissions for the connected group" },
+  { "command": "import",      "description": "Import submissions to the connected group" },
+  { "command": "setwhisper",  "description": "Configure whisper settings for this connection" },
+  { "command": "resetroles",  "description": "Reset all connection roles for the active connection" },
+  { "command": "setdefault",  "description": "Set the active connection as the global default" },
+  { "command": "setcommands", "description": "Update the bot's command menu" }
 ]
